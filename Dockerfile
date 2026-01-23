@@ -1,6 +1,6 @@
 
 # Stage 1: Install dependencies
-FROM node:18 AS development
+FROM node:22 AS development
 
 WORKDIR /usr/src/app
 
@@ -17,7 +17,7 @@ RUN npm run build
 RUN npm prune --production
 
 # Stage 3: Production image
-FROM node:18-alpine AS production
+FROM node:22-alpine AS production
 
 WORKDIR /usr/src/app
 
