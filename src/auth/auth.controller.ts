@@ -13,7 +13,7 @@ export class AuthController {
   @Post('/signup')
   @ApiOperation({ summary: '회원가입' })
   @ApiResponse({ status: 201, description: '회원가입 성공' })
-  @ApiResponse({ status: 401, description: '이미 존재하는 이메일' })
+  @ApiResponse({ status: 409, description: '이미 존재하는 이메일' })
   signUp(@Body() signUpDto: SignUpDto): Promise<void> {
     return this.authService.signUp(signUpDto);
   }

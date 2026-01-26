@@ -56,7 +56,8 @@ export class BoardController {
   @Patch('/:id')
   @ApiOperation({ summary: '게시글 수정' })
   @ApiResponse({ status: 200, description: '수정 성공' })
-  @ApiResponse({ status: 404, description: '게시글을 찾을 수 없거나 권한 없음' })
+  @ApiResponse({ status: 403, description: '수정 권한 없음' })
+  @ApiResponse({ status: 404, description: '게시글을 찾을 수 없음' })
   updatePost(
     @Param('id', ParseIntPipe) id: number,
     @Body() createPostDto: CreatePostDto,

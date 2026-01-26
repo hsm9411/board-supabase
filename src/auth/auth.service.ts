@@ -1,5 +1,5 @@
 
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -33,7 +33,7 @@ export class AuthService {
     } catch (error) {
       if (error.code === '23505') {
         // duplicate email
-        throw new UnauthorizedException('Email already exists');
+        throw new ConflictException('Email already exists');
       } else {
         throw error;
       }

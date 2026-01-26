@@ -1,5 +1,5 @@
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
 import { ILike, Repository } from 'typeorm';
@@ -29,7 +29,8 @@ export class BoardService {
 
   async getPosts(getPostsDto: GetPostsDto) {
     const { page, limit, search } = getPostsDto;
-    const query = this.postRepository.createQueryBuilder('post');
+    const query = this.postRepository.createQueryBuilder('post')
+      .leftJoinAndSelect('post.author', 'author');
 
     if (search) {
       // LIKE -> ILIKE로 변경 (Postgres 전용)
@@ -55,6 +56,7 @@ export class BoardService {
   async getMyPosts(user: User): Promise<Post[]> {
     return this.postRepository.find({
       where: { author: { id: user.id } },
+      relations: ['author'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -80,7 +82,7 @@ export class BoardService {
     const post = await this.getPostById(id);
 
     if (post.author.id !== user.id) {
-      throw new NotFoundException('You are not the author of this post');
+      throw new ForbiddenException('You are not the author of this post');
     }
 
     post.title = createPostDto.title;
