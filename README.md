@@ -78,6 +78,60 @@
 
 ---
 
+## 🛡️ [DB 보안 및 개념 가이드] Row Level Security (RLS)
+
+Supabase(PostgreSQL)를 사용할 때 반드시 이해해야 하는 핵심 보안 개념인 **RLS**에 대해 정리합니다.
+
+### 1. 개념 정의: RLS란 무엇인가? 💡
+
+**Row Level Security (행 단위 보안)**는 데이터베이스의 테이블에서 **"누가 어떤 행(Row)에 접근할 수 있는지"**를 결정하는 보안 규칙입니다.
+
+*   **직관적 비유 (아파트 출입 시스템)**:
+    *   **NestJS 서버 (공동 현관문 Guard)**: 아파트 단지 입구에서 신분증을 확인하고 들여보내 주는 경비원입니다. (인증/인가 담당)
+    *   **RLS (개별 호실 도어락)**: 경비원을 통과했더라도, **자기 집 번호키**가 없으면 다른 집 문을 열 수 없습니다. (데이터 소유권 확인)
+*   **왜 NestJS가 있는데 DB에서도 막아야 하나요?**
+    *   **심층 방어 (Defense in Depth)**: 만약 서버 코드의 버그로 인해 "남의 글 삭제" 로직이 실수로 실행되더라도, DB단에서 RLS가 설정되어 있다면 물리적으로 삭제가 불가능합니다.
+    *   **직접 접근 차단**: 관리자가 실수로 DB 접속 정보를 노출하거나, SQL Injection 공격이 발생하더라도 피해 범위를 본인의 데이터로 한정할 수 있습니다.
+
+### 2. 설정 위치 및 방법 (How-to) 🛠️
+
+이 설정은 NestJS 코드가 아닌 **Supabase 대시보드**에서 수행합니다.
+
+1.  **접속 경로**: [Supabase Console](https://supabase.com/dashboard) -> 프로젝트 선택 -> 왼쪽 메뉴 **[Authentication]** -> **[Policies]**
+2.  **활성화**: 대상 테이블(posts, users)에서 **[Enable RLS]** 버튼을 클릭하여 활성화합니다.
+3.  **정책 생성**: **[New Policy]**를 눌러 SQL 명령어로 규칙을 정의합니다.
+
+### 3. 실전 예시 (3단계) 📝
+
+#### **1단계: 직관적 상황**
+> "사용자 길동이는 자신이 작성한 게시글만 수정하거나 삭제할 수 있어야 하며, 다른 사람의 글은 읽기만 가능해야 한다."
+
+#### **2단계: 실제 SQL 명령어 (Policy)**
+Supabase SQL Editor에서 아래와 같이 설정할 수 있습니다.
+```sql
+-- 1. posts 테이블의 RLS 활성화
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+-- 2. 모든 사용자가 게시글을 읽을 수 있도록 허용 (SELECT)
+CREATE POLICY "누구나 게시글을 조회할 수 있음"
+ON posts FOR SELECT
+USING (true);
+
+-- 3. 인증된 사용자 중 '본인'만 자신의 글을 수정/삭제하도록 허용 (ALL)
+-- (참고: auth.uid()는 Supabase Auth 사용 시 기준이며,
+--  커스텀 JWT 사용 시에는 해당 토큰의 claim에 맞춰 설정이 필요합니다.)
+CREATE POLICY "작성자 본인만 자신의 글을 관리함"
+ON posts FOR ALL
+TO authenticated
+USING (author_id = auth.uid());
+```
+
+#### **3단계: 현업 활용 팁 (Best Practice)**
+*   **관리자 전용 정책**: `is_admin` 컬럼을 활용하여 `CHECK (auth.jwt() ->> 'role' = 'admin')`과 같은 정책을 추가하면, 서버 코드 수정 없이도 DB 레벨에서 강력한 관리자 권한 제어가 가능합니다.
+*   **민감 정보 보호**: `users` 테이블에서 본인 외에는 이메일이나 전화번호를 아예 조회(SELECT)조차 못 하게 막음으로써 개인정보 유출 사고를 원천 봉쇄할 수 있습니다.
+
+---
+
 ## ⚙️ 환경 설정 및 실행 방법 (Getting Started)
 
 ### 1. 사전 요구사항 (Prerequisites)
