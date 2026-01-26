@@ -1,10 +1,11 @@
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
 import { ILike, Repository } from 'typeorm';
 import { CreatePostDto } from './dto/create-post.dto';
 import { Post } from 'src/entities/post.entity';
+import { GetPostsDto } from './dto/get-posts.dto';
 
 @Injectable()
 export class BoardService {
@@ -26,8 +27,10 @@ export class BoardService {
     return post;
   }
 
-  async getPosts(page: number, limit: number, search: string) {
-    const query = this.postRepository.createQueryBuilder('post');
+  async getPosts(getPostsDto: GetPostsDto) {
+    const { page, limit, search } = getPostsDto;
+    const query = this.postRepository.createQueryBuilder('post')
+      .leftJoinAndSelect('post.author', 'author');
 
     if (search) {
       // LIKE -> ILIKE로 변경 (Postgres 전용)
@@ -50,12 +53,18 @@ export class BoardService {
     };
   }
 
-  // 수정
+  async getMyPosts(user: User): Promise<Post[]> {
+    return this.postRepository.find({
+      where: { author: { id: user.id } },
+      relations: ['author'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async getPostById(id: number): Promise<Post> {
-    // 👇 relations 옵션을 추가해서 작성자 정보를 같이 가져와야 합니다.
     const found = await this.postRepository.findOne({ 
       where: { id },
-      relations: ['author'] // 이 부분이 핵심입니다!
+      relations: ['author']
     });
 
     if (!found) {
@@ -73,7 +82,7 @@ export class BoardService {
     const post = await this.getPostById(id);
 
     if (post.author.id !== user.id) {
-      throw new NotFoundException('You are not the author of this post');
+      throw new ForbiddenException('You are not the author of this post');
     }
 
     post.title = createPostDto.title;

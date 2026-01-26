@@ -1,10 +1,11 @@
 
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { AuthCredentialsDto } from './dto/auth-credentials.dto';
+import { SignUpDto } from './dto/signup.dto';
+import { SignInDto } from './dto/signin.dto';
 import { User } from '../entities/user.entity';
 
 @Injectable()
@@ -15,8 +16,8 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async signUp(authCredentialsDto: AuthCredentialsDto): Promise<void> {
-    const { email, password, nickname } = authCredentialsDto;
+  async signUp(signUpDto: SignUpDto): Promise<void> {
+    const { email, password, nickname } = signUpDto;
 
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -32,7 +33,7 @@ export class AuthService {
     } catch (error) {
       if (error.code === '23505') {
         // duplicate email
-        throw new UnauthorizedException('Email already exists');
+        throw new ConflictException('Email already exists');
       } else {
         throw error;
       }
@@ -40,9 +41,9 @@ export class AuthService {
   }
 
   async signIn(
-    authCredentialsDto: AuthCredentialsDto,
+    signInDto: SignInDto,
   ): Promise<{ accessToken: string }> {
-    const { email, password } = authCredentialsDto;
+    const { email, password } = signInDto;
     const user = await this.usersRepository.findOne({ where: {email} });
 
     if (user && (await bcrypt.compare(password, user.password))) {
