@@ -1,5 +1,5 @@
 
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, Matches } from 'class-validator';
 
 export class AuthCredentialsDto {
   @IsEmail()
@@ -8,7 +8,10 @@ export class AuthCredentialsDto {
 
   @IsString()
   @IsNotEmpty()
-  @MinLength(4)
+  @MinLength(8)
+  @Matches(/^[a-zA-Z0-9]*$/, {
+    message: 'password only accepts alphanumeric characters',
+  })
   password: string;
 
   @IsString()

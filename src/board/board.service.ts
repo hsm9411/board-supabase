@@ -30,8 +30,9 @@ export class BoardService {
     const query = this.postRepository.createQueryBuilder('post');
 
     if (search) {
+      // LIKE -> ILIKE로 변경 (Postgres 전용)
       query.where(
-        'post.title LIKE :search OR post.content LIKE :search',
+        'post.title ILIKE :search OR post.content ILIKE :search',
         { search: `%${search}%` },
       );
     }
@@ -49,8 +50,13 @@ export class BoardService {
     };
   }
 
+  // 수정
   async getPostById(id: number): Promise<Post> {
-    const found = await this.postRepository.findOne({ where: { id } });
+    // 👇 relations 옵션을 추가해서 작성자 정보를 같이 가져와야 합니다.
+    const found = await this.postRepository.findOne({ 
+      where: { id },
+      relations: ['author'] // 이 부분이 핵심입니다!
+    });
 
     if (!found) {
       throw new NotFoundException(`Post with ID "${id}" not found`);
