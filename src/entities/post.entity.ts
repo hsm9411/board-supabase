@@ -3,8 +3,8 @@ import { User } from './user.entity';
 
 @Entity('posts')
 export class Post {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column()
   title: string; // (참고: 위 코드에 있던 빈 줄 제거함)

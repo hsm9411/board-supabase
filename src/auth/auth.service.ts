@@ -22,7 +22,10 @@ export class AuthService {
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // [주의] auth.users와 연동하기 위해 UUID를 생성합니다.
+    // 실제 운영 환경에서는 Supabase Auth로부터 ID를 전달받아야 합니다.
     const user = this.usersRepository.create({
+      id: crypto.randomUUID(),
       email,
       password: hashedPassword,
       nickname,

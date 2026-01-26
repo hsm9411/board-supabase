@@ -1,9 +1,6 @@
 # 🚀 Scalable Bulletin Board System (Nest.js + Supabase + Docker)
 
-이 프로젝트는 **Nest.js**와 **Supabase(PostgreSQL)**를 기반으로 구축된 확장 가능한 게시판 시스템입니다.
-단순한 CRUD를 넘어 **Docker**와 **Nginx**를 활용한 로드 밸런싱 환경(Replica x3)을 구축하였으며, 트래픽 분산 처리와 데이터 보안 최적화를 실뮬레이션할 수 있도록 설계되었습니다.
-
----
+이 프로젝트는 **Nest.js**와 **Supabase(PostgreSQL)**를 기반으로 구축된 확장 가능한 게시판 시스템입니다. **Docker**와 **Nginx**를 활용하여 로드 밸런싱 환경(Replica x3)을 구성하였으며, 트래픽 분산 처리를 시뮬레이션할 수 있도록 설계되었습니다.
 
 ## 📋 프로젝트 개요
 
@@ -11,96 +8,91 @@
 - **핵심 아키텍처:**
     - **Client** → **Nginx (Load Balancer)** → **Nest.js Server (x3 Replicas)** → **Supabase (DB)**
 - **특징:**
-    - Round-Robin 방식의 부하 분산 처리
-    - JWT 기반 인증 및 Guard를 통한 보안 강화
-    - TypeORM 관계 설정(1:N) 및 QueryBuilder 최적화
-    - **Swagger (OpenAPI)**를 통한 인터랙티브 API 문서화
+    - Round-Robin 방식의 부하 분산
+    - JWT 기반 인증 (Guards, Strategy 적용)
+    - TypeORM을 활용한 Entity 관계 설정 (1:N)
+    - Docker Compose를 통한 원터치 인프라 배포
+    - **Swagger (OpenAPI)**를 통한 자동화된 API 문서화
+
+---
+
+## 🛠 기술 스택 및 버전
+
+| Category | Technology | Version / Note |
+| :--- | :--- | :--- |
+| **Framework** | Nest.js | 11.x |
+| **Runtime** | Node.js | `22-alpine` (Docker Base Image) |
+| **Database** | Supabase | PostgreSQL (Managed) |
+| **ORM** | TypeORM | `0.3.x` |
+| **Infrastructure** | Docker Compose | 3.8 |
+| **Load Balancer** | Nginx | Latest |
 
 ---
 
 ## 📂 프로젝트 구조 (Project Structure)
 
-이해를 돕기 위한 전체 디렉토리 및 주요 파일 구조입니다.
-
 ```text
 .
 ├── src
-│   ├── auth                    # 인증 및 인가 (JWT, Passport, Strategy)
-│   │   ├── dto                 # 전용 DTO (SignUp, SignIn)
+│   ├── auth                    # 인증 모듈 (JWT, Passport)
+│   │   ├── dto                 # SignIn, SignUp DTO
 │   │   ├── auth.controller.ts
 │   │   ├── auth.service.ts
+│   │   ├── jwt.strategy.ts
 │   │   └── get-user.decorator.ts
-│   ├── board                   # 게시판 비즈니스 로직 (CRUD)
-│   │   ├── dto                 # CreatePost, GetPosts(페이징/검색) DTO
+│   ├── board                   # 게시판 모듈 (CRUD 비즈니스 로직)
+│   │   ├── dto                 # CreatePost, GetPosts DTO
 │   │   ├── board.controller.ts
 │   │   └── board.service.ts
-│   ├── entities                # DB 스키마 정의 (TypeORM)
-│   │   ├── user.entity.ts      # User 엔티티 (비밀번호 보호 적용)
-│   │   └── post.entity.ts      # Post 엔티티 (작성자 관계 설정)
-│   ├── app.module.ts           # 전역 모듈 및 DB 연결 설정
-│   └── main.ts                 # 엔트리 포인트 (전역 파이프, 인터셉터, Swagger)
-├── test                        # 테스트 코드 (E2E, Unit)
-├── nginx.conf                  # Nginx 로드밸런싱 설정 파일
-├── Dockerfile                  # 컨테이너 빌드를 위한 설정
-├── docker-compose.yml          # 인프라 오케스트레이션 (App x3, Nginx)
-└── supabase_rls.sql            # DB 보안 강화를 위한 RLS 정책 스크립트
+│   ├── entities                # DB 테이블 정의 (TypeORM)
+│   │   ├── user.entity.ts      # User 테이블 (1)
+│   │   └── post.entity.ts      # Post 테이블 (N)
+│   ├── app.module.ts           # 최상위 모듈
+│   └── main.ts                 # 엔트리 포인트 (Swagger, Global Pipes/Interceptors)
+├── test                        # E2E 및 Unit 테스트
+├── nginx.conf                  # Nginx 로드밸런싱 설정
+├── Dockerfile                  # Multi-stage 빌드 설정
+├── docker-compose.yml          # 서비스 오케스트레이션
+└── package.json                # 의존성 목록
 ```
 
 ---
 
-## ✨ 기술적 개선 및 리팩토링 내역 (Key Improvements)
+## ✨ 기술적 개선 사항 (Technical Improvements)
 
-기존 코드의 구조적 문제를 진단하고, 현업 수준의 완성도를 위해 다음과 같은 리팩토링을 진행했습니다.
+리팩토링을 통해 다음과 같은 품질 향상 및 보안 강화를 진행하였습니다.
 
-1.  **표준 예외 처리 (Standard Exceptions)**:
-    - 단순한 에러 반환이 아닌, 상황에 맞는 HTTP 상태 코드(`409 Conflict`, `403 Forbidden` 등)를 사용하여 API의 명확성을 높였습니다.
-2.  **데이터 보안 강화 (Security)**:
-    - `ClassSerializerInterceptor`와 `@Exclude()` 데코레이터를 사용하여, API 응답 시 사용자의 비밀번호 해시가 노출되는 보안 위협을 원천 차단했습니다.
-3.  **데이터 관계 및 성능 최적화**:
-    - 게시글 목록 조회 시 작성자(`author`) 정보를 로드할 때 `leftJoinAndSelect`를 활용하여 불필요한 쿼리 발생을 줄이고 데이터 완성도를 높였습니다.
-4.  **DTO 구조화 및 유효성 검사**:
-    - 각 목적에 맞는 전용 DTO를 생성하고 `class-validator`를 적용하여 데이터의 무결성을 보장합니다.
-5.  **Swagger UI 고도화**:
-    - 모든 엔드포인트에 상세한 설명과 예시 값, 응답 타입을 정의하여 개발자 친화적인 문서를 완성했습니다.
-6.  **환경 설정 분리 (NODE_ENV)**:
-    - `NODE_ENV` 변수를 도입하여 개발 환경에서만 Swagger가 활성화되도록 제어하고 보안성을 강화했습니다.
-
----
-
-## 🛡️ [DB 보안 가이드] Row Level Security (RLS)
-
-Supabase를 더욱 안전하게 사용하기 위해 적용된 **RLS** 개념을 소개합니다.
-
-### 1. RLS란 무엇인가요? 💡
-**행 단위 보안(Row Level Security)**은 데이터베이스 테이블에서 "특정 조건(행)에 맞는 데이터에만 접근할 수 있게" 직접 제약하는 물리적인 방어막입니다.
-
--   **직관적 비유 (호텔 카드키)**:
-    -   **NestJS 서버 (프런트 데스크)**: 손님의 신분증을 확인하고 체크인을 돕습니다.
-    -   **RLS (객실 카드키)**: 체크인을 했더라도(로그인 성공), **자신의 카드키**가 없으면 다른 손님의 방(데이터)에는 들어갈 수 없습니다.
--   **왜 필요한가요?**: 서버 코드에 실수가 있더라도, DB 레벨에서 "본인 글이 아니면 수정/삭제 불가"라는 규칙이 한 번 더 보호해주기 때문에 훨씬 안전합니다. (**심층 방어**)
-
-### 2. 설정 방법 (How-to)
-1.  **Supabase 대시보드** 접속 -> [SQL Editor] 메뉴로 이동.
-2.  프로젝트 루트의 `supabase_rls.sql` 파일 내용을 복사하여 실행.
-3.  [Authentication] -> [Policies] 탭에서 활성화된 정책 확인.
+1. **표준 예외 처리 도입**:
+   - 중복 회원가입 시 `ConflictException`(409)을 반환하도록 수정하여 API 응답의 의미를 명확히 했습니다.
+   - 타인의 게시글 수정 시도 시 `ForbiddenException`(403)을 던져 권한 위반을 명확히 구분했습니다.
+2. **데이터 보안 강화**:
+   - `ClassSerializerInterceptor`와 `@Exclude()`를 도입하여 API 응답 시 사용자의 비밀번호 해시가 노출되지 않도록 차단했습니다.
+3. **데이터 관계 최적화**:
+   - 게시글 목록 및 상세 조회 시 `leftJoinAndSelect`를 사용하여 작성자(`author`) 정보를 효율적으로 함께 로드하도록 개선했습니다.
+4. **DTO 구조화 및 유효성 검사**:
+   - `SignUpDto`, `SignInDto`, `GetPostsDto` 등으로 DTO를 세분화하고, `class-validator`를 통해 엄격한 타입 검증을 수행합니다.
+5. **Swagger 문서 고도화**:
+   - 모든 API와 DTO에 Swagger 데코레이터를 적용하여 파라미터 설명, 예시 값, 응답 코드를 상세히 기술했습니다.
 
 ---
 
 ## ⚙️ 환경 설정 및 실행 방법 (Getting Started)
 
-### 1. 환경 변수 설정 (.env)
-루트 경로에 `.env` 파일을 생성하고 아래 내용을 입력하세요.
+### 1. 사전 요구사항 (Prerequisites)
+- [Docker Desktop](https://www.docker.com/) 설치 및 실행
+- [Supabase](https://supabase.com/) 계정 및 프로젝트 생성
+
+### 2. 환경 변수 설정 (.env)
+루트 경로에 `.env` 파일을 생성하고 아래 내용을 작성하세요.
 
 ```ini
-NODE_ENV="development" # 필수 (Swagger 및 개발 모드 활성화)
 DATABASE_URL="postgresql://postgres:[PASSWORD]@[HOST]:5432/[DB_NAME]"
 JWT_SECRET="your_super_secret_key"
 TZ="Asia/Seoul"
 ```
 
-### 2. 실행 (Docker)
+### 3. 실행 (Run Application)
 ```bash
-# 컨테이너 빌드 및 실행
 docker-compose up --build
 ```
 
@@ -113,7 +105,7 @@ docker-compose up --build
 - **URL:** `http://localhost/api` (Nginx 경유) 또는 `http://localhost:3000/api` (개별 앱 직접 접속)
 
 ### 🔐 API 명세 (API Specification)
-> **모든 Board API는 인증이 필요합니다.** (Header: `Authorization: Bearer <AccessToken>`)
+> **인증 필요 시 헤더:** `Authorization: Bearer <AccessToken>`
 
 #### 👤 Auth Module
 | Method | Endpoint | Description | Request Body |
@@ -122,44 +114,48 @@ docker-compose up --build
 | `POST` | `/auth/signin` | 로그인 및 토큰 발급 | `{ email, password }` |
 
 #### 📝 Board Module
-| Method | Endpoint | Description | Request Body / Query |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/board` | 게시글 작성 | `{ title, content, isPublic? }` |
-| `GET` | `/board` | 전체 게시글 조회 | `?page=1&limit=10&search=keyword` (공개글만 조회) |
-| `GET` | `/board/my` | 내가 쓴 게시글 조회 | - |
-| `GET` | `/board/:id` | 게시글 상세 조회 | - |
-| `PATCH` | `/board/:id` | 게시글 수정 | `{ title, content, isPublic? }` (작성자 전용) |
-| `DELETE` | `/board/:id` | 게시글 삭제 | - (작성자 전용) |
+| Method | Endpoint | Description | Auth | Request Body / Query |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/board` | 게시글 작성 | 필수 | `{ title, content, isPublic? }` |
+| `GET` | `/board` | 전체 게시글 조회 | 선택 | `?page=1&limit=10&search=keyword` |
+| `GET` | `/board/my` | 내 게시글 조회 | 필수 | - |
+| `GET` | `/board/:id` | 게시글 상세 조회 | 선택 | - |
+| `PATCH` | `/board/:id` | 게시글 수정 | 필수 | `{ title, content, isPublic? }` |
+| `DELETE` | `/board/:id` | 게시글 삭제 | 필수 | - |
 
 ---
 
-## 🔐 Database Security (RLS)
+## 🔐 Supabase & RLS 설계
 
-본 프로젝트는 보안 계층의 다중화를 위해 **Supabase Row Level Security (RLS)**를 도입하였습니다. 이는 애플리케이션 서버뿐만 아니라 데이터베이스 엔진 수준에서도 데이터 접근 권한을 강제하기 위함입니다.
+본 프로젝트는 보안 계층의 다중화 및 Supabase 생태계와의 완벽한 통합을 위해 **UUID 기반의 아키텍처**와 **Row Level Security (RLS)**를 도입하였습니다.
 
-### 1. RLS 도입 목적
-- **심층 방어(Defense in Depth)**: 서버 코드의 버그나 설정 실수로 권한 로직이 우회되더라도, DB 차원에서 비인가 데이터 접근을 원천 차단합니다.
-- **향후 확장성**: 추후 프론트엔드에서 Supabase Client를 통해 DB에 직접 접근하는 아키텍처로 전환할 때, 별도의 서버 로직 수정 없이 보안을 유지할 수 있습니다.
+### 1. 설계 방향 및 인증 흐름
+- **UUID 기반 재설계**: 기존의 정수형(`number`) ID 시스템을 `UUID`로 전면 교체하였습니다. 특히 `users.id`는 Supabase Auth의 `auth.users(id)`를 참조하도록 설계되어, DB 수준에서 인증 시스템과 강력하게 결합됩니다.
+- **인증 흐름**:
+  1. 클라이언트는 NestJS 서버를 통해 JWT를 발급받습니다.
+  2. 서버는 요청을 처리할 때 DB(Supabase)와 통신합니다.
+  3. Supabase는 전달된 컨텍스트(또는 직접 접근 시 JWT)를 바탕으로 RLS 정책을 평가하여 데이터 접근을 제어합니다.
 
-### 2. 기존 서버 권한 로직과의 관계
-- **현재 상태**: `BoardService`에서 수행하는 작성자 검증(`ForbiddenException`)과 RLS 정책이 공존합니다.
-- **상호 보완**:
-  - NestJS 서버는 비즈니스 로직과 함께 명확한 에러 메시지(403 Forbidden)를 반환하는 역할을 수행합니다.
-  - RLS는 최후의 보루로서, 인가되지 않은 쿼리 수행 시 데이터 반환을 거부하거나 영향을 주지 않도록 보장합니다.
-- **향후 계획**: 점진적으로 권한 검증 책임을 RLS로 이관하여 서버 로직을 경량화할 예정입니다.
+### 2. RLS 정책 및 권한 모델
+- **게시글 읽기**: 비로그인 사용자 및 전체 사용자에게 공개글(`is_public = true`) 조회를 허용합니다.
+- **게시글 CUD (작성/수정/삭제)**: 로그인한 사용자 중 **작성자 본인**에게만 권한을 부여합니다.
+- **보안 다중화**:
+  - **1단계 (Application Layer)**: NestJS 서버의 `Guard` 및 `Service`에서 1차 검증. 명확한 비즈니스 예외(403 Forbidden)를 반환합니다.
+  - **2단계 (Database Layer)**: Supabase RLS 정책을 통한 2차 검증. 서버 설정 실수나 직접적인 DB 접근 시에도 데이터를 보호하는 최후의 보루입니다.
+  - **[참고]** NestJS 서버에서 RLS를 완벽히 활용하려면 DB 세션에 JWT Claim을 전파하는 로직(SET LOCAL)이 필요하며, 본 프로젝트에서는 보안 다중화(Defense in Depth) 전략으로 두 계층을 모두 유지합니다.
 
-### 3. 적용된 변경 사항
-- **[추가]** `posts` 테이블에 `is_public` (boolean) 컬럼 추가. (기본값: `true`)
-- **[추가]** `supabase_rls.sql` 파일을 통한 테이블 수준 보안 정책 정의.
-- **[변경]** `GET /board` (전체 조회) 시 `is_public = true`인 데이터만 필터링하여 반환하도록 서비스 로직 보완.
-- **[주의]** 현재 `User` 엔티티의 ID가 `number`이므로, Supabase `auth.uid()` (UUID)와 비교 시 타입 캐스팅이 필요합니다. 상세 내용은 `supabase_rls.sql` 주석을 참고하세요.
+### 3. 주요 변경 및 주의 사항
+- **[추가]** `supabase_rls.sql`: UUID 기반 테이블 DDL 및 RLS 정책 정의 스크립트.
+- **[변경]** `User`, `Post` 엔티티의 ID 타입을 `number`에서 `string(UUID)`으로 구조 정렬.
+- **[변경]** 게시판 상세 조회(`GET /board/:id`) 및 전체 조회를 비인증 사용자에게도 개방 (단, 작성/수정/삭제는 인증 필요).
+- **[주의]** **DB 지속성**: Supabase는 외부 관리형 DB이므로 Docker Compose 재시작 시에도 데이터가 유지됩니다. 스키마 변경 사항은 `supabase_rls.sql`을 통해 Supabase 대시보드에서 직접 적용해야 합니다.
 
 ---
 
 ## 🚧 향후 과제 (Roadmap)
 
 1.  **Production 모드 전환**: `synchronize: false` 설정 및 **TypeORM Migrations** 도입.
-2.  **UUID 도입**: PK를 Auto Increment `number`에서 `UUID`로 변경하여 보안성 및 분산 환경 호환성 강화.
+2.  **Supabase Auth 통합**: 현재의 커스텀 JWT 방식을 Supabase Auth SDK로 완전히 교체하여 RLS와의 연동성 극대화.
 3.  **Global Exception Filter**: 일관된 에러 응답 포맷을 위한 전역 필터 구현.
 
 ---
