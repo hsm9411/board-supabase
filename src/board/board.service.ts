@@ -15,11 +15,12 @@ export class BoardService {
   ) {}
 
   async createPost(createPostDto: CreatePostDto, user: User): Promise<Post> {
-    const { title, content } = createPostDto;
+    const { title, content, isPublic } = createPostDto;
 
     const post = this.postRepository.create({
       title,
       content,
+      isPublic: isPublic ?? true,
       author: user,
     });
 
@@ -30,12 +31,14 @@ export class BoardService {
   async getPosts(getPostsDto: GetPostsDto) {
     const { page, limit, search } = getPostsDto;
     const query = this.postRepository.createQueryBuilder('post')
-      .leftJoinAndSelect('post.author', 'author');
+      .leftJoinAndSelect('post.author', 'author')
+      .where('post.is_public = :isPublic', { isPublic: true });
 
     if (search) {
+      // search condition should be ANDed with is_public
       // LIKE -> ILIKE로 변경 (Postgres 전용)
-      query.where(
-        'post.title ILIKE :search OR post.content ILIKE :search',
+      query.andWhere(
+        '(post.title ILIKE :search OR post.content ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -85,8 +88,12 @@ export class BoardService {
       throw new ForbiddenException('You are not the author of this post');
     }
 
-    post.title = createPostDto.title;
-    post.content = createPostDto.content;
+    const { title, content, isPublic } = createPostDto;
+    post.title = title;
+    post.content = content;
+    if (isPublic !== undefined) {
+      post.isPublic = isPublic;
+    }
 
     await this.postRepository.save(post);
     return post;
