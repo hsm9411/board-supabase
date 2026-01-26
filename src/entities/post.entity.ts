@@ -15,6 +15,9 @@ export class Post {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
+  @Column({ name: 'is_public', default: true })
+  isPublic: boolean;
+
   // 👇 [중요 변경 포인트]
   @ManyToOne(() => User, user => user.posts, { 
     onDelete: 'CASCADE',  // 1. 유저가 탈퇴(삭제)하면 작성한 글도 같이 삭제됨

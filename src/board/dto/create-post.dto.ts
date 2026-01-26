@@ -1,5 +1,5 @@
 
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePostDto {
@@ -13,4 +13,9 @@ export class CreatePostDto {
   @IsString()
   @IsNotEmpty()
   content: string;
+
+  @ApiProperty({ description: '공개 여부', example: true, default: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
 }

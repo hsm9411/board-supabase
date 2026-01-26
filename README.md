@@ -109,15 +109,58 @@ docker-compose up --build
 ## 🔌 API 명세 및 문서화
 
 ### 📖 Swagger API 문서
-서버가 실행되면 아래 주소를 통해 대화형 문서를 사용할 수 있습니다.
-- **접속 주소:** `http://localhost/api`
+서버 실행 후 아래 주소에서 대화형 API 문서를 확인할 수 있습니다.
+- **URL:** `http://localhost/api` (Nginx 경유) 또는 `http://localhost:3000/api` (개별 앱 직접 접속)
 
-### 🔐 주요 API 리스트
-- **인증 (Auth)**: `/auth/signup`, `/auth/signin`
-- **게시판 (Board)**:
-  - `GET /board` (전체 조회, 페이징/검색 포함)
-  - `GET /board/my` (내가 쓴 글 목록)
-  - `POST /board`, `PATCH /board/:id`, `DELETE /board/:id`
+### 🔐 API 명세 (API Specification)
+> **모든 Board API는 인증이 필요합니다.** (Header: `Authorization: Bearer <AccessToken>`)
+
+#### 👤 Auth Module
+| Method | Endpoint | Description | Request Body |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/signup` | 회원가입 | `{ email, password, nickname }` |
+| `POST` | `/auth/signin` | 로그인 및 토큰 발급 | `{ email, password }` |
+
+#### 📝 Board Module
+| Method | Endpoint | Description | Request Body / Query |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/board` | 게시글 작성 | `{ title, content, isPublic? }` |
+| `GET` | `/board` | 전체 게시글 조회 | `?page=1&limit=10&search=keyword` (공개글만 조회) |
+| `GET` | `/board/my` | 내가 쓴 게시글 조회 | - |
+| `GET` | `/board/:id` | 게시글 상세 조회 | - |
+| `PATCH` | `/board/:id` | 게시글 수정 | `{ title, content, isPublic? }` (작성자 전용) |
+| `DELETE` | `/board/:id` | 게시글 삭제 | - (작성자 전용) |
+
+---
+
+## 🔐 Database Security (RLS)
+
+본 프로젝트는 보안 계층의 다중화를 위해 **Supabase Row Level Security (RLS)**를 도입하였습니다. 이는 애플리케이션 서버뿐만 아니라 데이터베이스 엔진 수준에서도 데이터 접근 권한을 강제하기 위함입니다.
+
+### 1. RLS 도입 목적
+- **심층 방어(Defense in Depth)**: 서버 코드의 버그나 설정 실수로 권한 로직이 우회되더라도, DB 차원에서 비인가 데이터 접근을 원천 차단합니다.
+- **향후 확장성**: 추후 프론트엔드에서 Supabase Client를 통해 DB에 직접 접근하는 아키텍처로 전환할 때, 별도의 서버 로직 수정 없이 보안을 유지할 수 있습니다.
+
+### 2. 기존 서버 권한 로직과의 관계
+- **현재 상태**: `BoardService`에서 수행하는 작성자 검증(`ForbiddenException`)과 RLS 정책이 공존합니다.
+- **상호 보완**:
+  - NestJS 서버는 비즈니스 로직과 함께 명확한 에러 메시지(403 Forbidden)를 반환하는 역할을 수행합니다.
+  - RLS는 최후의 보루로서, 인가되지 않은 쿼리 수행 시 데이터 반환을 거부하거나 영향을 주지 않도록 보장합니다.
+- **향후 계획**: 점진적으로 권한 검증 책임을 RLS로 이관하여 서버 로직을 경량화할 예정입니다.
+
+### 3. 적용된 변경 사항
+- **[추가]** `posts` 테이블에 `is_public` (boolean) 컬럼 추가. (기본값: `true`)
+- **[추가]** `supabase_rls.sql` 파일을 통한 테이블 수준 보안 정책 정의.
+- **[변경]** `GET /board` (전체 조회) 시 `is_public = true`인 데이터만 필터링하여 반환하도록 서비스 로직 보완.
+- **[주의]** 현재 `User` 엔티티의 ID가 `number`이므로, Supabase `auth.uid()` (UUID)와 비교 시 타입 캐스팅이 필요합니다. 상세 내용은 `supabase_rls.sql` 주석을 참고하세요.
+
+---
+
+## 🚧 향후 과제 (Roadmap)
+
+1.  **Production 모드 전환**: `synchronize: false` 설정 및 **TypeORM Migrations** 도입.
+2.  **UUID 도입**: PK를 Auto Increment `number`에서 `UUID`로 변경하여 보안성 및 분산 환경 호환성 강화.
+3.  **Global Exception Filter**: 일관된 에러 응답 포맷을 위한 전역 필터 구현.
 
 ---
 
