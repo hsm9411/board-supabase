@@ -1,12 +1,12 @@
 
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
 import { Post } from './post.entity';
 import { Exclude } from 'class-transformer';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryColumn('uuid')
+  id: string;
 
   @Column({ unique: true })
   email: string;

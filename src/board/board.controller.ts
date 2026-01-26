@@ -5,7 +5,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -22,11 +21,11 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 @ApiTags('board')
 @ApiBearerAuth('access-token')
 @Controller('board')
-@UseGuards(AuthGuard())
 export class BoardController {
   constructor(private boardService: BoardService) {}
 
   @Post()
+  @UseGuards(AuthGuard())
   @ApiOperation({ summary: '게시글 작성' })
   @ApiResponse({ status: 201, description: '작성 성공' })
   createPost(@Body() createPostDto: CreatePostDto, @GetUser() user: User) {
@@ -40,6 +39,7 @@ export class BoardController {
   }
 
   @Get('/my')
+  @UseGuards(AuthGuard())
   @ApiOperation({ summary: '내가 쓴 게시글 조회' })
   getMyPosts(@GetUser() user: User) {
     return this.boardService.getMyPosts(user);
@@ -49,17 +49,18 @@ export class BoardController {
   @ApiOperation({ summary: '게시글 상세 조회' })
   @ApiResponse({ status: 200, description: '조회 성공' })
   @ApiResponse({ status: 404, description: '게시글을 찾을 수 없음' })
-  getPostById(@Param('id', ParseIntPipe) id: number) {
-    return this.boardService.getPostById(id);
+  getPostById(@Param('id') id: string, @GetUser() user?: User) {
+    return this.boardService.getPostById(id, user);
   }
 
   @Patch('/:id')
+  @UseGuards(AuthGuard())
   @ApiOperation({ summary: '게시글 수정' })
   @ApiResponse({ status: 200, description: '수정 성공' })
   @ApiResponse({ status: 403, description: '수정 권한 없음' })
   @ApiResponse({ status: 404, description: '게시글을 찾을 수 없음' })
   updatePost(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() createPostDto: CreatePostDto,
     @GetUser() user: User,
   ) {
@@ -67,10 +68,11 @@ export class BoardController {
   }
 
   @Delete('/:id')
+  @UseGuards(AuthGuard())
   @ApiOperation({ summary: '게시글 삭제' })
   @ApiResponse({ status: 200, description: '삭제 성공' })
   @ApiResponse({ status: 404, description: '게시글을 찾을 수 없거나 권한 없음' })
-  deletePost(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
+  deletePost(@Param('id') id: string, @GetUser() user: User) {
     return this.boardService.deletePost(id, user);
   }
 }

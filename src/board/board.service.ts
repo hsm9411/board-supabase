@@ -64,7 +64,7 @@ export class BoardService {
     });
   }
 
-  async getPostById(id: number): Promise<Post> {
+  async getPostById(id: string, user?: User): Promise<Post> {
     const found = await this.postRepository.findOne({ 
       where: { id },
       relations: ['author']
@@ -74,11 +74,16 @@ export class BoardService {
       throw new NotFoundException(`Post with ID "${id}" not found`);
     }
 
+    // 비공개 글인 경우 작성자 본인만 확인 가능
+    if (!found.isPublic && (!user || found.author.id !== user.id)) {
+      throw new ForbiddenException('This post is private');
+    }
+
     return found;
   }
 
   async updatePost(
-    id: number,
+    id: string,
     createPostDto: CreatePostDto,
     user: User,
   ): Promise<Post> {
@@ -99,7 +104,7 @@ export class BoardService {
     return post;
   }
 
-  async deletePost(id: number, user: User): Promise<void> {
+  async deletePost(id: string, user: User): Promise<void> {
     const result = await this.postRepository.delete({ id, author: { id: user.id } });
 
     if (result.affected === 0) {
