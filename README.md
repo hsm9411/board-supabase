@@ -73,6 +73,8 @@
    - `SignUpDto`, `SignInDto`, `GetPostsDto` 등으로 DTO를 세분화하고, `class-validator`를 통해 엄격한 타입 검증을 수행합니다.
 5. **Swagger 문서 고도화**:
    - 모든 API와 DTO에 Swagger 데코레이터를 적용하여 파라미터 설명, 예시 값, 응답 코드를 상세히 기술했습니다.
+6. **환경별 설정 분리**:
+   - `NODE_ENV` 환경 변수를 도입하여 개발 환경에서만 Swagger UI가 활성화되도록 제어했습니다.
 
 ---
 
@@ -86,6 +88,7 @@
 루트 경로에 `.env` 파일을 생성하고 아래 내용을 작성하세요.
 
 ```ini
+NODE_ENV="development"
 DATABASE_URL="postgresql://postgres:[PASSWORD]@[HOST]:5432/[DB_NAME]"
 JWT_SECRET="your_super_secret_key"
 TZ="Asia/Seoul"
