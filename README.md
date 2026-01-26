@@ -98,16 +98,17 @@ Nginx가 `localhost:80` 포트에서 대기 중입니다.
 
 ### 🔐 인증 (Auth Module)
 - **POST** `/auth/signup` : 회원가입
-  - Body: `{ email, password, nickname }`
+  - Body: `SignUpDto { email, password, nickname }`
 - **POST** `/auth/signin` : 로그인 (JWT 발급)
-  - Body: `{ email, password }`
+  - Body: `SignInDto { email, password }`
 
 ### 📝 게시판 (Board Module)
 > **헤더 필수:** `Authorization: Bearer <AccessToken>`
 - **POST** `/board` : 게시글 작성 (작성자 자동 매핑)
-- **GET** `/board` : 전체 게시글 조회
+- **GET** `/board` : 전체 게시글 조회 (Query: `page`, `limit`, `search`)
 - **GET** `/board/my` : 내가 쓴 글 조회
 - **GET** `/board/:id` : 특정 게시글 상세 조회
+- **PATCH** `/board/:id` : 게시글 수정 (작성자 본인만 가능)
 - **DELETE** `/board/:id` : 게시글 삭제 (작성자 본인만 가능)
 
 ---
@@ -115,10 +116,12 @@ Nginx가 `localhost:80` 포트에서 대기 중입니다.
 ## 🚧 문제 해결 및 개선 사항 (Troubleshooting & Roadmap)
 
 ### ✅ 해결된 이슈
-1.  **Docker Caching Issue:** 코드 변경 사항이 컨테이너에 반영되지 않던 문제 → `up --build` 및 이미지 삭제로 해결.
-2.  **Network Resolution:** Supabase 연결 시 `ENOTFOUND` 에러 → Docker Network 설정 및 올바른 Connection String 사용으로 해결.
-3.  **Table Creation Race Condition:** Replica 3개가 동시 실행될 때 테이블 중복 생성 시도 에러 → 개발 환경의 특성으로 인지, 재시작으로 해결.
-4.  **Timezone:** 로그 시간이 UTC로 찍히는 문제 → Docker 환경변수 `TZ=Asia/Seoul` 추가로 해결.
+1.  **Docker Caching Issue:** 코드 변경 사항이 컨테이너에 반영되지 않던 문제.
+2.  **Network Resolution:** Supabase 연결 시 `ENOTFOUND` 에러 해결.
+3.  **Table Creation Race Condition:** Replica 3개가 동시 실행될 때 테이블 중복 생성 시도 에러.
+4.  **Timezone:** Docker 환경변수 `TZ=Asia/Seoul` 추가로 해결.
+5.  **API Documentation:** Swagger(OpenAPI) 연동 완료 (`/api` 경로).
+6.  **DTO Refactoring:** 인증 및 게시판 조회를 위한 전용 DTO 도입 및 유효성 검사 강화.
 
 ### 🚀 개선해야 할 점 (To-Do)
 1.  **Production 모드 전환:**
@@ -126,8 +129,8 @@ Nginx가 `localhost:80` 포트에서 대기 중입니다.
     - 추후 **TypeORM Migrations**을 도입하여 `synchronize: false`로 변경 필요.
 2.  **UUID 도입:**
     - 현재 ID가 `number` 타입(Auto Increment)임. 분산 환경 및 보안을 위해 `UUID`로 변경 고려.
-3.  **API 문서화:**
-    - Swagger(OpenAPI)를 연동하여 API 테스트 편의성 증대 필요.
+3.  **Global Exception Filter:**
+    - 일관된 에러 응답 처리를 위한 전역 필터 도입 필요.
 
 ---
 
