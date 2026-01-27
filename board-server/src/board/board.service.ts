@@ -1,8 +1,7 @@
-
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
-import { ILike, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CreatePostDto } from './dto/create-post.dto';
 import { Post } from 'src/entities/post.entity';
 import { GetPostsDto } from './dto/get-posts.dto';
@@ -35,8 +34,6 @@ export class BoardService {
       .where('post.is_public = :isPublic', { isPublic: true });
 
     if (search) {
-      // search condition should be ANDed with is_public
-      // LIKE -> ILIKE로 변경 (Postgres 전용)
       query.andWhere(
         '(post.title ILIKE :search OR post.content ILIKE :search)',
         { search: `%${search}%` },
@@ -74,7 +71,6 @@ export class BoardService {
       throw new NotFoundException(`Post with ID "${id}" not found`);
     }
 
-    // 비공개 글인 경우 작성자 본인만 확인 가능
     if (!found.isPublic && (!user || found.author.id !== user.id)) {
       throw new ForbiddenException('This post is private');
     }
@@ -87,7 +83,14 @@ export class BoardService {
     createPostDto: CreatePostDto,
     user: User,
   ): Promise<Post> {
-    const post = await this.getPostById(id);
+    const post = await this.postRepository.findOne({
+      where: { id },
+      relations: ['author']
+    });
+
+    if (!post) {
+      throw new NotFoundException(`Post with ID "${id}" not found`);
+    }
 
     if (post.author.id !== user.id) {
       throw new ForbiddenException('You are not the author of this post');
