@@ -65,6 +65,15 @@
 1. **표준 예외 처리 도입**:
    - 중복 회원가입 시 `ConflictException`(409)을 반환하도록 수정하여 API 응답의 의미를 명확히 했습니다.
    - 타인의 게시글 수정 시도 시 `ForbiddenException`(403)을 던져 권한 위반을 명확히 구분했습니다.
+   - **Global Exception Filter**를 도입하여 모든 에러 응답을 일관된 JSON 포맷으로 표준화하였습니다.
+     ```json
+     {
+       "timestamp": "2026-01-26T15:00:00.000Z",
+       "path": "/api/target-path",
+       "message": "Error message",
+       "statusCode": 400
+     }
+     ```
 2. **데이터 보안 강화**:
    - `ClassSerializerInterceptor`와 `@Exclude()`를 도입하여 API 응답 시 사용자의 비밀번호 해시가 노출되지 않도록 차단했습니다.
 3. **데이터 관계 최적화**:
@@ -94,6 +103,20 @@ TZ="Asia/Seoul"
 ### 3. 실행 (Run Application)
 ```bash
 docker-compose up --build
+```
+
+### 4. 데이터베이스 마이그레이션 (Database Migrations)
+운영 환경에서의 안정적인 스키마 관리를 위해 TypeORM Migrations를 사용합니다.
+
+```bash
+# 마이그레이션 생성 (src/migrations 폴더에 생성됨)
+npm run migration:generate -- src/migrations/MigrationName
+
+# 마이그레이션 반영
+npm run migration:run
+
+# 마이그레이션 복구
+npm run migration:revert
 ```
 
 ---
@@ -154,9 +177,7 @@ docker-compose up --build
 
 ## 🚧 향후 과제 (Roadmap)
 
-1.  **Production 모드 전환**: `synchronize: false` 설정 및 **TypeORM Migrations** 도입.
-2.  **Supabase Auth 통합**: 현재의 커스텀 JWT 방식을 Supabase Auth SDK로 완전히 교체하여 RLS와의 연동성 극대화.
-3.  **Global Exception Filter**: 일관된 에러 응답 포맷을 위한 전역 필터 구현.
+1.  **Supabase Auth 통합**: 현재의 커스텀 JWT 방식을 Supabase Auth SDK로 완전히 교체하여 RLS와의 연동성 극대화.
 
 ---
 

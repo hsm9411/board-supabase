@@ -23,7 +23,7 @@ import { BoardModule } from './board/board.module';
         // autoLoadEntities: true를 켜면 entities 배열은 필요 없습니다.
         // 각 모듈(AuthModule, BoardModule)에서 forFeature로 등록된 엔티티를 자동으로 읽습니다.
         autoLoadEntities: true, 
-        synchronize: true, // 개발 환경에서만 true (테이블 자동 생성)
+        synchronize: false, // 프로덕션 관리를 위해 false로 변경
         ssl: {
           rejectUnauthorized: false,
         },
