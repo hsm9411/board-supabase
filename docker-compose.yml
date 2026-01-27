@@ -1,25 +1,35 @@
-
 version: '3.8'
-
-x-app-service: &app-service
-  build: .
-  env_file:
-    - .env
-  environment:
-    - PORT=3000
-  networks:
-    - app-network
-
 services:
-  app1:
-    <<: *app-service
-
-  app2:
-    <<: *app-service
-
-  app3:
-    <<: *app-service
-
+  auth-service:
+    build:
+      context: ./auth-server
+    env_file:
+      - .env
+    environment:
+      - PORT=3001
+    networks:
+      - app-network
+  board-service-1:
+    build:
+      context: ./board-server
+    env_file:
+      - .env
+    networks:
+      - app-network
+  board-service-2:
+    build:
+      context: ./board-server
+    env_file:
+      - .env
+    networks:
+      - app-network
+  board-service-3:
+    build:
+      context: ./board-server
+    env_file:
+      - .env
+    networks:
+      - app-network
   nginx:
     image: nginx:latest
     ports:
@@ -29,10 +39,10 @@ services:
     networks:
       - app-network
     depends_on:
-      - app1
-      - app2
-      - app3
-
+      - auth-service
+      - board-service-1
+      - board-service-2
+      - board-service-3
 networks:
   app-network:
     driver: bridge

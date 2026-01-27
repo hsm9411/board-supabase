@@ -1,10 +1,7 @@
-// src/main.ts
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-
-// 👇 Swagger import
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
@@ -13,10 +10,9 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
-  // ✅ Swagger 설정 (여기!)
   const config = new DocumentBuilder()
-    .setTitle('게시판 API')
-    .setDescription('게시판 프로젝트 API 문서입니다.')
+    .setTitle('Board API')
+    .setDescription('게시판 서비스 API 문서입니다.')
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -24,7 +20,7 @@ async function bootstrap() {
         scheme: 'bearer',
         bearerFormat: 'JWT',
       },
-      'access-token', // 이름 (컨트롤러에서 @ApiBearerAuth('access-token')과 매칭 가능)
+      'access-token',
     )
     .build();
 
@@ -33,7 +29,6 @@ async function bootstrap() {
     SwaggerModule.setup('api', app, document);
   }
 
-  // ✅ ValidationPipe (이미 잘 되어 있음)
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
