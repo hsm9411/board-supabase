@@ -6,7 +6,11 @@
 
 - **목표:** 고가용성(High Availability) 및 확장성을 고려한 백엔드 아키텍처 구축
 - **핵심 아키텍처:**
-    - **Client** → **Nginx (Load Balancer)** → **Nest.js Server (x3 Replicas)** → **Supabase (DB)**
+    - **MSA (Microservices Architecture)** 구조 채택
+    - **Client** → **Nginx (API Gateway/LB)**
+        - `/auth/*` → **Auth Service** (포트 3001)
+        - `/*` (기본) → **Board Service** (포트 3000, Replica x3)
+    - **All Services** → **Supabase (Shared DB)**
 - **특징:**
     - Round-Robin 방식의 부하 분산
     - JWT 기반 인증 (Guards, Strategy 적용)
@@ -31,30 +35,20 @@
 
 ## 📂 프로젝트 구조 (Project Structure)
 
-```text
-.
-├── src
-│   ├── auth                    # 인증 모듈 (JWT, Passport)
-│   │   ├── dto                 # SignIn, SignUp DTO
-│   │   ├── auth.controller.ts
-│   │   ├── auth.service.ts
-│   │   ├── jwt.strategy.ts
-│   │   └── get-user.decorator.ts
-│   ├── board                   # 게시판 모듈 (CRUD 비즈니스 로직)
-│   │   ├── dto                 # CreatePost, GetPosts DTO
-│   │   ├── board.controller.ts
-│   │   └── board.service.ts
-│   ├── entities                # DB 테이블 정의 (TypeORM)
-│   │   ├── user.entity.ts      # User 테이블 (1)
-│   │   └── post.entity.ts      # Post 테이블 (N)
-│   ├── app.module.ts           # 최상위 모듈
-│   └── main.ts                 # 엔트리 포인트 (Swagger, Global Pipes/Interceptors)
-├── test                        # E2E 및 Unit 테스트
-├── nginx.conf                  # Nginx 로드밸런싱 설정
-├── Dockerfile                  # Multi-stage 빌드 설정
-├── docker-compose.yml          # 서비스 오케스트레이션
-└── package.json                # 의존성 목록
-```
+본 프로젝트는 MSA 전환을 통해 서비스를 독립적으로 운영합니다.
+
+### 🔐 [Auth Server](./auth-server)
+- **역할**: 사용자 인증, 토큰 발급 및 검증
+- **주요 폴더**: `src/auth`, `src/entities`
+
+### 📝 [Board Server](./board-server)
+- **역할**: 게시글 CRUD 및 비즈니스 로직
+- **주요 폴더**: `src/board`, `src/entities`, `src/common`
+
+### 🏗️ 인프라 및 공통
+- `nginx.conf`: 서비스별 라우팅 및 로드 밸런싱 설정
+- `docker-compose.yml`: 전체 서비스 컨테이너 오케스트레이션
+- `supabase_rls.sql`: DB 보안 정책 (RLS) 설정
 
 ---
 
