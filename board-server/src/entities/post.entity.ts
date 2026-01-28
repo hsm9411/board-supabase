@@ -11,9 +11,6 @@ export class Post {
   @Column('text')
   content: string;
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
-
   @Column({ name: 'is_public', default: true })
   isPublic: boolean;
 
@@ -21,10 +18,13 @@ export class Post {
   @Column({ name: 'author_id', type: 'uuid' })
   authorId: string;
 
-  // 캐시된 User 정보 (비정규화)
+  // ✅ 비정규화: User 정보 캐싱
   @Column({ name: 'author_email', nullable: true })
   authorEmail: string;
 
   @Column({ name: 'author_nickname', nullable: true })
   authorNickname: string;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 }
