@@ -1,26 +1,35 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'src/entities/user.entity';
 import { Repository } from 'typeorm';
+import { Post } from '../entities/post.entity';
+import { CachedUser } from '../entities/cached-user.entity';
 import { CreatePostDto } from './dto/create-post.dto';
-import { Post } from 'src/entities/post.entity';
-import { GetPostsDto } from './dto/get-posts.dto';
+import { AuthClientService } from '../auth/auth-client.service';
+import { User } from '../entities/user.entity';
 
 @Injectable()
 export class BoardService {
   constructor(
     @InjectRepository(Post)
     private postRepository: Repository<Post>,
+    @InjectRepository(CachedUser)
+    private cachedUserRepository: Repository<CachedUser>,
+    private authClientService: AuthClientService,
   ) {}
 
-  async createPost(createPostDto: CreatePostDto, user: User): Promise<Post> {
+  async createPost(createPostDto: CreatePostDto, user: User, token: string): Promise<Post> {
     const { title, content, isPublic } = createPostDto;
+
+    // User 정보를 캐시 테이블에 저장/업데이트
+    await this.syncUserCache(user.id, token);
 
     const post = this.postRepository.create({
       title,
       content,
       isPublic: isPublic ?? true,
-      author: user,
+      authorId: user.id,
+      authorEmail: user.email,
+      authorNickname: user.nickname,
     });
 
     await this.postRepository.save(post);
@@ -30,7 +39,6 @@ export class BoardService {
   async getPosts(getPostsDto: GetPostsDto) {
     const { page, limit, search } = getPostsDto;
     const query = this.postRepository.createQueryBuilder('post')
-      .leftJoinAndSelect('post.author', 'author')
       .where('post.is_public = :isPublic', { isPublic: true });
 
     if (search) {
@@ -53,65 +61,27 @@ export class BoardService {
     };
   }
 
-  async getMyPosts(user: User): Promise<Post[]> {
-    return this.postRepository.find({
-      where: { author: { id: user.id } },
-      relations: ['author'],
-      order: { createdAt: 'DESC' },
-    });
-  }
+  // User 캐시 동기화
+  private async syncUserCache(userId: string, token: string): Promise<void> {
+    try {
+      const cachedUser = await this.cachedUserRepository.findOne({ where: { id: userId } });
+      
+      // 캐시가 없거나 1시간 이상 지났으면 갱신
+      const shouldSync = !cachedUser || 
+        (Date.now() - cachedUser.lastSyncedAt.getTime()) > 3600000;
 
-  async getPostById(id: string, user?: User): Promise<Post> {
-    const found = await this.postRepository.findOne({
-      where: { id },
-      relations: ['author']
-    });
-
-    if (!found) {
-      throw new NotFoundException(`Post with ID "${id}" not found`);
-    }
-
-    if (!found.isPublic && (!user || found.author.id !== user.id)) {
-      throw new ForbiddenException('This post is private');
-    }
-
-    return found;
-  }
-
-  async updatePost(
-    id: string,
-    createPostDto: CreatePostDto,
-    user: User,
-  ): Promise<Post> {
-    const post = await this.postRepository.findOne({
-      where: { id },
-      relations: ['author']
-    });
-
-    if (!post) {
-      throw new NotFoundException(`Post with ID "${id}" not found`);
-    }
-
-    if (post.author.id !== user.id) {
-      throw new ForbiddenException('You are not the author of this post');
-    }
-
-    const { title, content, isPublic } = createPostDto;
-    post.title = title;
-    post.content = content;
-    if (isPublic !== undefined) {
-      post.isPublic = isPublic;
-    }
-
-    await this.postRepository.save(post);
-    return post;
-  }
-
-  async deletePost(id: string, user: User): Promise<void> {
-    const result = await this.postRepository.delete({ id, author: { id: user.id } });
-
-    if (result.affected === 0) {
-      throw new NotFoundException(`Post with ID "${id}" not found`);
+      if (shouldSync) {
+        const userInfo = await this.authClientService.getUserById(userId, token);
+        
+        await this.cachedUserRepository.save({
+          id: userInfo.id,
+          email: userInfo.email,
+          nickname: userInfo.nickname,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to sync user cache:', error);
+      // 캐시 실패해도 서비스는 계속 진행
     }
   }
 }

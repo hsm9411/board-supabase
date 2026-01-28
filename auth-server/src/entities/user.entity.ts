@@ -1,7 +1,7 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
 
-@Entity('users')
+@Entity('users', { schema: 'auth_schema' })
 export class User {
   @PrimaryColumn('uuid')
   id: string;

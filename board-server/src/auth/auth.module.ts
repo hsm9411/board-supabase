@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from '../entities/user.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AuthClientService } from './auth-client.service';  // ✅ 추가
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     }),
     TypeOrmModule.forFeature([User]),
   ],
-  providers: [JwtStrategy],
-  exports: [JwtStrategy, PassportModule],
+  providers: [JwtStrategy, AuthClientService],  // ✅ 추가
+  exports: [JwtStrategy, PassportModule, AuthClientService],  // ✅ 추가
 })
 export class AuthModule {}
