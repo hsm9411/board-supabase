@@ -1,5 +1,9 @@
-
-import { ConflictException, Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -43,11 +47,9 @@ export class AuthService {
     }
   }
 
-  async signIn(
-    signInDto: SignInDto,
-  ): Promise<{ accessToken: string }> {
+  async signIn(signInDto: SignInDto): Promise<{ accessToken: string }> {
     const { email, password } = signInDto;
-    const user = await this.usersRepository.findOne({ where: {email} });
+    const user = await this.usersRepository.findOne({ where: { email } });
 
     if (user && (await bcrypt.compare(password, user.password))) {
       const payload = { email };
@@ -74,5 +76,4 @@ export class AuthService {
     }
     return user;
   }
-
 }
