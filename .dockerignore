@@ -8,5 +8,5 @@ npm-debug.log
 .gitignore
 README.md
 .dockerignore
-Dockerfile
+dockerfile
 docker-compose.yml

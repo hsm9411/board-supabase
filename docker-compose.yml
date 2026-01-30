@@ -19,6 +19,7 @@ services:
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
   # ========================================
   # Auth Service
   # ========================================
@@ -39,7 +40,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "exit 0"]  # ← 간단한 헬스체크로 변경
+      test: ["CMD-SHELL", "exit 0"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -68,7 +69,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "exit 0"]  # ← 간단한 헬스체크로 변경
+      test: ["CMD-SHELL", "exit 0"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -131,6 +132,10 @@ services:
       - board-service-1
       - board-service-2
       - board-service-3
+
+  # ========================================
+  # Prometheus
+  # ========================================
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -169,7 +174,7 @@ services:
       - prometheus
 
   # ========================================
-  # Node Exporter (시스템 메트릭)
+  # Node Exporter
   # ========================================
   node-exporter:
     image: prom/node-exporter:latest
@@ -179,9 +184,11 @@ services:
     networks:
       - app-network
 
-
+# ▼▼▼ 여기가 중요합니다. 왼쪽 벽에 딱 붙어야 합니다. ▼▼▼
 volumes:
   redis-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   app-network:
