@@ -1,30 +1,45 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Post } from '../entities/post.entity';
-import { CachedUser } from '../entities/cached-user.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetPostsDto } from './dto/get-posts.dto';
 import { User } from '../entities/user.entity';
+
+interface CachedUserData {
+  id: string;
+  email: string;
+  nickname: string;
+}
 
 @Injectable()
 export class BoardService {
   constructor(
     @InjectRepository(Post)
     private postRepository: Repository<Post>,
-    @InjectRepository(CachedUser)
-    private cachedUserRepository: Repository<CachedUser>,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
   ) {}
 
   /**
-   * 게시글 생성
-   * User 정보를 비정규화하여 Post에 직접 저장
+   * 게시글 생성 (Redis에 User 정보 캐싱)
    */
   async createPost(createPostDto: CreatePostDto, user: User): Promise<Post> {
     const { title, content, isPublic } = createPostDto;
 
-    // User 캐시 동기화 (비동기, 실패해도 무관)
-    this.syncUserCacheAsync(user.id, user.email, user.nickname);
+    // User 정보를 Redis에 캐싱 (1시간 TTL)
+    const cacheKey = `user:${user.id}`;
+    await this.cacheManager.set(
+      cacheKey,
+      {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+      },
+      3600000, // 1시간 (ms)
+    );
 
     const post = this.postRepository.create({
       title,
@@ -36,14 +51,29 @@ export class BoardService {
     });
 
     await this.postRepository.save(post);
+    
+    // 게시글 목록 캐시 무효화
+    await this.invalidatePostsCache();
+    
     return post;
   }
 
   /**
-   * 공개 게시글 목록 조회 (페이징, 검색)
+   * 공개 게시글 목록 조회 (Redis 캐싱)
    */
   async getPosts(getPostsDto: GetPostsDto) {
     const { page, limit, search } = getPostsDto;
+    const cacheKey = `posts:page=${page}:limit=${limit}:search=${search || 'none'}`;
+
+    // 1. Redis에서 캐싱된 데이터 확인
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      console.log('[Cache Hit] Posts list from Redis');
+      return cached;
+    }
+
+    // 2. Cache Miss → DB 조회
+    console.log('[Cache Miss] Fetching from DB');
     const query = this.postRepository
       .createQueryBuilder('post')
       .where('post.is_public = :isPublic', { isPublic: true })
@@ -61,50 +91,53 @@ export class BoardService {
       .take(limit)
       .getManyAndCount();
 
-    return {
+    const result = {
       data: posts,
       total,
       page,
       last_page: Math.ceil(total / limit),
     };
+
+    // 3. Redis에 캐싱 (10분 TTL)
+    await this.cacheManager.set(cacheKey, result, 600000);
+
+    return result;
   }
 
   /**
-   * 내가 쓴 게시글 조회
-   */
-  async getMyPosts(user: User) {
-    const posts = await this.postRepository.find({
-      where: { authorId: user.id },
-      order: { createdAt: 'DESC' },
-    });
-
-    return { data: posts, total: posts.length };
-  }
-
-  /**
-   * 게시글 상세 조회
-   * - 공개 글: 누구나 조회 가능
-   * - 비공개 글: 작성자만 조회 가능
+   * 게시글 상세 조회 (Redis 캐싱)
    */
   async getPostById(id: string, user?: User): Promise<Post> {
-    const post = await this.postRepository.findOne({ where: { id } });
+    const cacheKey = `post:${id}`;
 
+    // 1. Redis 확인
+    const cached = await this.cacheManager.get<Post>(cacheKey);
+    if (cached) {
+      console.log('[Cache Hit] Post detail from Redis');
+      if (!cached.isPublic && (!user || cached.authorId !== user.id)) {
+        throw new ForbiddenException('This post is private');
+      }
+      return cached;
+    }
+
+    // 2. DB 조회
+    const post = await this.postRepository.findOne({ where: { id } });
     if (!post) {
       throw new NotFoundException('Post not found');
     }
 
-    // 비공개 글인 경우 권한 검증
-    if (!post.isPublic) {
-      if (!user || post.authorId !== user.id) {
-        throw new ForbiddenException('This post is private');
-      }
+    if (!post.isPublic && (!user || post.authorId !== user.id)) {
+      throw new ForbiddenException('This post is private');
     }
+
+    // 3. Redis 캐싱 (30분 TTL)
+    await this.cacheManager.set(cacheKey, post, 1800000);
 
     return post;
   }
 
   /**
-   * 게시글 수정 (작성자만)
+   * 게시글 수정 (캐시 무효화)
    */
   async updatePost(
     id: string,
@@ -128,11 +161,16 @@ export class BoardService {
     }
 
     await this.postRepository.save(post);
+
+    // 관련 캐시 무효화
+    await this.cacheManager.del(`post:${id}`);
+    await this.invalidatePostsCache();
+
     return post;
   }
 
   /**
-   * 게시글 삭제 (작성자만)
+   * 게시글 삭제 (캐시 무효화)
    */
   async deletePost(id: string, user: User): Promise<void> {
     const post = await this.postRepository.findOne({ where: { id } });
@@ -146,37 +184,36 @@ export class BoardService {
     }
 
     await this.postRepository.remove(post);
+
+    // 관련 캐시 무효화
+    await this.cacheManager.del(`post:${id}`);
+    await this.invalidatePostsCache();
   }
 
   /**
-   * User 캐시 비동기 동기화
-   * 실패해도 메인 로직에 영향 없음
+   * 게시글 목록 캐시 무효화 (패턴 매칭)
    */
-  private syncUserCacheAsync(
-    userId: string,
-    email: string,
-    nickname: string,
-  ): void {
-    setImmediate(async () => {
-      try {
-        const cachedUser = await this.cachedUserRepository.findOne({
-          where: { id: userId },
-        });
+  private async invalidatePostsCache(): Promise<void> {
+    // ioredis의 keys 명령어 사용 (프로덕션에서는 SCAN 권장)
+    const store = this.cacheManager.store as any;
+    const client = store.client;
+    
+    const keys = await client.keys('posts:*');
+    if (keys.length > 0) {
+      await client.del(...keys);
+      console.log(`[Cache Invalidation] Deleted ${keys.length} post list caches`);
+    }
+  }
 
-        const shouldSync =
-          !cachedUser ||
-          Date.now() - cachedUser.lastSyncedAt.getTime() > 3600000;
-
-        if (shouldSync) {
-          await this.cachedUserRepository.save({
-            id: userId,
-            email,
-            nickname,
-          });
-        }
-      } catch (error) {
-        console.error('Failed to sync user cache:', error);
-      }
+  /**
+   * 내가 쓴 게시글 조회 (캐싱 미적용 - 개인화 데이터)
+   */
+  async getMyPosts(user: User) {
+    const posts = await this.postRepository.find({
+      where: { authorId: user.id },
+      order: { createdAt: 'DESC' },
     });
+
+    return { data: posts, total: posts.length };
   }
 }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BoardModule } from './board/board.module';
+import { CacheModule } from './cache/cache.module'; // ← 추가
 
 @Module({
   imports: [
@@ -9,6 +10,7 @@ import { BoardModule } from './board/board.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    CacheModule, // ← 추가
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
