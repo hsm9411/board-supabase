@@ -22,7 +22,7 @@ import { AuthClientService } from './auth-client.service';  // ✅ 추가
     }),
     TypeOrmModule.forFeature([User]),
   ],
-  providers: [JwtStrategy, AuthClientService],  // ✅ 추가
-  exports: [JwtStrategy, PassportModule, AuthClientService],  // ✅ 추가
+  providers: [JwtStrategy, AuthClientService], // ✅ 추가
+  exports: [JwtStrategy, PassportModule, AuthClientService], // ✅ 추가
 })
 export class AuthModule {}

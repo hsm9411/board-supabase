@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Counter, Histogram } from 'prom-client';
@@ -32,10 +27,7 @@ export class MetricsInterceptor implements NestInterceptor {
             route: route?.path || 'unknown',
             status: '2xx',
           });
-          this.httpRequestDuration.observe(
-            { method, route: route?.path || 'unknown' },
-            duration,
-          );
+          this.httpRequestDuration.observe({ method, route: route?.path || 'unknown' }, duration);
         },
         error: (error) => {
           const duration = (Date.now() - start) / 1000;
@@ -44,10 +36,7 @@ export class MetricsInterceptor implements NestInterceptor {
             route: route?.path || 'unknown',
             status: error.status || '5xx',
           });
-          this.httpRequestDuration.observe(
-            { method, route: route?.path || 'unknown' },
-            duration,
-          );
+          this.httpRequestDuration.observe({ method, route: route?.path || 'unknown' }, duration);
         },
       }),
     );

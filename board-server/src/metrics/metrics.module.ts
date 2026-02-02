@@ -1,5 +1,10 @@
 import { Module } from '@nestjs/common';
-import { PrometheusModule, makeCounterProvider, makeHistogramProvider } from '@willsoto/nestjs-prometheus';
+import {
+  PrometheusModule,
+  makeCounterProvider,
+  makeHistogramProvider,
+} from '@willsoto/nestjs-prometheus';
+import { MetricsInterceptor } from '../common/interceptors/metrics.interceptor';
 
 @Module({
   imports: [
@@ -19,7 +24,12 @@ import { PrometheusModule, makeCounterProvider, makeHistogramProvider } from '@w
       help: 'HTTP request duration in seconds',
       labelNames: ['method', 'route'],
     }),
+    MetricsInterceptor,
   ],
-  exports: [PrometheusModule],
+  exports: [PrometheusModule, MetricsInterceptor],
 })
-export class MetricsModule {}
+export class MetricsModule {
+  constructor() {
+    console.log('✅ MetricsModule Loaded!');
+  }
+}

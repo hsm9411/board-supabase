@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BoardModule } from './board/board.module';
-import { CacheModule } from './cache/cache.module'; // ← 추가
+import { CacheModule } from './cache/cache.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -10,7 +12,9 @@ import { CacheModule } from './cache/cache.module'; // ← 추가
       isGlobal: true,
       envFilePath: '.env',
     }),
-    CacheModule, // ← 추가
+    CacheModule,
+    MetricsModule,
+    HealthModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
