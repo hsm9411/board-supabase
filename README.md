@@ -1,10 +1,11 @@
 # 🚀 Scalable Bulletin Board System (MSA + Redis Cache + Monitoring + CI/CD)
 
-**최종 업데이트:** 2026-01-30  
+**최종 업데이트:** 2026-02-03  
 **아키텍처:** Microservices Architecture (MSA)  
-**버전:** 2.0.0
+**버전:** 2.1.0  
+**상태:** Production Ready ✅
 
-이 프로젝트는 **Nest.js**와 **Supabase(PostgreSQL)**를 기반으로 구축된 확장 가능한 게시판 시스템입니다. **Docker**, **Nginx**, **Redis**, **Prometheus/Grafana**를 활용하여 고가용성(HA), 캐싱, 모니터링, 자동화된 배포 파이프라인을 갖춘 프로덕션급 MSA 아키텍처입니다.
+이 프로젝트는 **NestJS**와 **Supabase(PostgreSQL)**를 기반으로 구축된 확장 가능한 게시판 시스템입니다. **Docker**, **Nginx**, **Redis**, **Prometheus/Grafana**를 활용하여 고가용성(HA), 캐싱, 모니터링, 자동화된 배포 파이프라인을 갖춘 프로덕션급 MSA 아키텍처입니다.
 
 ---
 
@@ -21,8 +22,9 @@
 9. [CI/CD](#-cicd-파이프라인)
 10. [성능 최적화](#-성능-최적화)
 11. [트러블슈팅](#-트러블슈팅)
-12. [향후 과제](#-향후-과제roadmap)
-13. [기여 가이드](#-기여-가이드)
+12. [디버깅 히스토리](#-디버깅-히스토리)
+13. [향후 과제](#-향후-과제roadmap)
+14. [기여 가이드](#-기여-가이드)
 
 ---
 
@@ -41,6 +43,7 @@
 - ✅ Redis 캐시 레이어 도입
 - ✅ Prometheus/Grafana 모니터링 스택 구축
 - ✅ GitHub Actions CI/CD 파이프라인 구성
+- ✅ `/metrics`, `/health` 엔드포인트 정상 작동
 - ⏳ Kafka 이벤트 버스 도입 (예정)
 - ⏳ Kubernetes 오케스트레이션 (예정)
 
@@ -59,6 +62,8 @@
 │   Nginx (API Gateway + Load Balancer)   │
 │   - /auth/* → Auth Service               │
 │   - /*      → Board Service (x3)         │
+│   - /metrics → Prometheus Scraping       │
+│   - /health  → Health Check              │
 └─────────────┬───────────────────────────┘
               │
        ┌──────┴──────┐
@@ -68,6 +73,9 @@
 │  Auth    │  │ Board Service   │
 │ Service  │  │   Replica x3    │
 │ (3001)   │  │   (3000)        │
+│          │  │                 │
+│ /metrics │  │ /metrics        │
+│ /health  │  │ /health         │
 └────┬─────┘  └────┬────────────┘
      │             │
      │    ┌────────┴────────┐
@@ -95,6 +103,8 @@
 2. **Nginx → Services:** 경로 기반 라우팅
    - `/auth/*` → Auth Service
    - `/board`, `/api` → Board Service (Round-Robin)
+   - `/metrics` → 각 서비스의 Prometheus 엔드포인트
+   - `/health` → 각 서비스의 Health Check 엔드포인트
 3. **Services → Redis:** 캐시 조회/저장
 4. **Services → Supabase:** DB CRUD
 5. **Prometheus → Services:** 메트릭 수집 (Pull 방식, 15초 간격)
@@ -114,6 +124,8 @@
 | **Gateway** | Nginx | Latest | API Gateway + LB |
 | **Monitoring** | Prometheus | Latest | 메트릭 수집 |
 | **Visualization** | Grafana | Latest | 모니터링 대시보드 |
+| **Health Check** | @nestjs/terminus | 11.0.0 | 서비스 상태 감시 |
+| **Metrics** | @willsoto/nestjs-prometheus | 6.0.2 | Prometheus 통합 |
 | **Container** | Docker Compose | 3.8 | 컨테이너 오케스트레이션 |
 | **CI/CD** | GitHub Actions | - | 자동화된 배포 |
 | **Testing** | Jest | Latest | 단위/통합 테스트 |
@@ -131,6 +143,7 @@ project-root/
 ├── auth-server/                        # [Service 1] 인증 서비스
 │   ├── src/
 │   │   ├── auth/
+│   │   │   ├── README.md               # Auth 모듈 설명서
 │   │   │   ├── auth.controller.ts      # 회원가입, 로그인, 사용자 조회
 │   │   │   ├── auth.service.ts         # 비즈니스 로직
 │   │   │   ├── jwt.strategy.ts         # JWT 검증 전략
@@ -140,10 +153,17 @@ project-root/
 │   │   ├── entities/
 │   │   │   └── user.entity.ts          # User Entity (auth_schema)
 │   │   ├── common/
-│   │   │   └── filters/
-│   │   │       └── http-exception.filter.ts
-│   │   ├── metrics/                     # ✅ 신규 추가
-│   │   │   └── metrics.module.ts
+│   │   │   ├── filters/
+│   │   │   │   └── http-exception.filter.ts
+│   │   │   └── interceptors/
+│   │   │       └── metrics.interceptor.ts
+│   │   ├── metrics/
+│   │   │   ├── README.md               # Metrics 모듈 설명서
+│   │   │   └── metrics.module.ts       # Prometheus 메트릭
+│   │   ├── health/
+│   │   │   ├── README.md               # Health 모듈 설명서
+│   │   │   ├── health.controller.ts    # 헬스체크 엔드포인트
+│   │   │   └── health.module.ts
 │   │   ├── app.module.ts
 │   │   └── main.ts
 │   ├── Dockerfile
@@ -153,6 +173,7 @@ project-root/
 ├── board-server/                       # [Service 2] 게시판 서비스
 │   ├── src/
 │   │   ├── board/
+│   │   │   ├── README.md               # Board 모듈 설명서
 │   │   │   ├── board.controller.ts     # 게시글 CRUD
 │   │   │   ├── board.service.ts        # Redis 캐싱 로직 포함
 │   │   │   └── dto/
@@ -164,23 +185,29 @@ project-root/
 │   │   │   ├── post.entity.ts          # Post Entity (board_schema)
 │   │   │   ├── cached-user.entity.ts   # 사용자 캐시 (Deprecated)
 │   │   │   └── user.entity.ts          # JWT 검증용 User Entity
-│   │   ├── cache/                       # ✅ 신규 추가
+│   │   ├── cache/
+│   │   │   ├── README.md               # Cache 모듈 설명서
 │   │   │   └── cache.module.ts         # Redis 캐시 모듈
-│   │   ├── metrics/                     # ✅ 신규 추가
-│   │   │   └── metrics.module.ts
+│   │   ├── metrics/
+│   │   │   ├── README.md               # Metrics 모듈 설명서
+│   │   │   └── metrics.module.ts       # Prometheus 메트릭
 │   │   ├── common/
+│   │   │   ├── README.md               # Common 모듈 설명서
 │   │   │   ├── filters/
 │   │   │   └── interceptors/
-│   │   │       └── metrics.interceptor.ts # ✅ HTTP 메트릭 수집
-│   │   ├── health/                      # ✅ 신규 추가
-│   │   │   └── health.controller.ts
+│   │   │       └── metrics.interceptor.ts
+│   │   ├── health/
+│   │   │   ├── README.md               # Health 모듈 설명서
+│   │   │   ├── health.controller.ts
+│   │   │   └── health.module.ts
 │   │   ├── app.module.ts
 │   │   └── main.ts
 │   ├── Dockerfile
 │   ├── package.json
 │   └── .env.example
 │
-├── monitoring/                          # ✅ 신규 추가
+├── monitoring/
+│   ├── README.md                        # 모니터링 설정 가이드
 │   ├── prometheus.yml                   # Prometheus 설정
 │   └── grafana/
 │       └── provisioning/
@@ -189,7 +216,8 @@ project-root/
 │           └── dashboards/
 │               └── board-service.json
 │
-├── scripts/                             # ✅ 신규 추가
+├── scripts/
+│   ├── README.md                        # 스크립트 사용 가이드
 │   ├── test-ci.sh                       # CI 로컬 시뮬레이션
 │   └── backup-db.sh                     # DB 백업 스크립트
 │
@@ -254,12 +282,28 @@ return data;
 
 #### 캐시 무효화 전략
 ```typescript
-// 패턴 매칭 무효화
-private async invalidatePostsCache() {
-  const keys = await redisClient.keys('posts:*');
-  if (keys.length > 0) {
-    await redisClient.del(...keys);
+// 패턴 매칭 무효화 (Redis SCAN 사용)
+private async invalidatePostsCache(): Promise<void> {
+  const store = (this.cacheManager as any).store;
+  
+  if (!store || typeof store.client?.scan !== 'function') {
+    console.warn('[Cache] Redis SCAN not available');
+    return;
   }
+  
+  const client = store.client;
+  let cursor = '0';
+  
+  do {
+    const [newCursor, keys] = await client.scan(
+      cursor, 'MATCH', 'posts:*', 'COUNT', 100
+    );
+    cursor = newCursor;
+    
+    if (keys.length > 0) {
+      await client.del(...keys);
+    }
+  } while (cursor !== '0');
 }
 ```
 
@@ -278,6 +322,9 @@ export class Post {
 
   @Column({ name: 'author_nickname' })
   authorNickname: string; // ✅ 비정규화: 작성자 닉네임 직접 저장
+  
+  @Column({ name: 'author_email', nullable: true })
+  authorEmail: string; // ✅ 비정규화: 작성자 이메일 직접 저장
 }
 ```
 
@@ -309,7 +356,45 @@ histogram_quantile(0.95, http_request_duration_seconds_bucket)
 rate(http_requests_total{status=~"5.."}[5m])
 ```
 
-### 5. CI/CD 파이프라인
+### 5. Health Check 엔드포인트
+
+#### Auth Service (`/auth/health`)
+```json
+{
+  "status": "ok",
+  "info": {
+    "database": {
+      "status": "up"
+    }
+  },
+  "error": {},
+  "details": {
+    "database": {
+      "status": "up"
+    }
+  }
+}
+```
+
+#### Board Service (`/health`)
+```json
+{
+  "status": "ok",
+  "info": {
+    "database": {
+      "status": "up"
+    }
+  },
+  "error": {},
+  "details": {
+    "database": {
+      "status": "up"
+    }
+  }
+}
+```
+
+### 6. CI/CD 파이프라인
 
 #### 워크플로우 단계
 ```mermaid
@@ -381,6 +466,8 @@ TZ=Asia/Seoul
 # ========================================
 NODE_ENV=development
 ```
+
+⚠️ **중요:** `.env.example` 파일을 복사하여 실제 값으로 채워넣으세요.
 
 #### GitHub Secrets 설정 (CI/CD용)
 
@@ -454,21 +541,29 @@ docker run -p 6379:6379 redis:7-alpine
 |--------|-----|------|
 | Auth Swagger | http://localhost/auth/api | 회원가입/로그인 테스트 |
 | Board Swagger | http://localhost/api | 게시글 CRUD 테스트 |
+| Auth Health | http://localhost/auth/health | Auth 서비스 상태 |
+| Board Health | http://localhost/health | Board 서비스 상태 |
+| Auth Metrics | http://localhost/auth/metrics | Prometheus 메트릭 |
+| Board Metrics | http://localhost/metrics | Prometheus 메트릭 |
 | Prometheus | http://localhost:9090 | 메트릭 조회 |
 | Grafana | http://localhost:3333 | ID: admin / PW: admin |
-| Redis Commander | http://localhost:8081 | Redis GUI (옵션) |
 
 ### 6. 헬스 체크
 ```bash
 # Auth Service
 curl http://localhost/auth/health
+# 응답: {"status":"ok","info":{"database":{"status":"up"}},...}
 
 # Board Service
-curl http://localhost/board/health
+curl http://localhost/health
+# 응답: {"status":"ok","info":{"database":{"status":"up"}},...}
 
 # Redis
 docker exec -it redis-cache redis-cli ping
 # 응답: PONG
+
+# Prometheus Targets
+curl http://localhost:9090/api/v1/targets
 ```
 
 ---
@@ -654,7 +749,7 @@ sum(rate(http_requests_total[5m]))
 
 #### 알람 설정
 
-**파일:** `monitoring/grafana/provisioning/alerting/rules.yml`
+**파일:** `monitoring/grafana/provisioning/alerting/rules.yml` (추가 예정)
 ```yaml
 groups:
   - name: board-service-alerts
@@ -755,7 +850,80 @@ LIMIT 10;
 
 ## 🛠 트러블슈팅
 
-### 1. Redis 연결 실패
+### 1. 404 Not Found (엔드포인트 미인식)
+
+**증상:**
+```
+Cannot GET /metrics
+Cannot GET /health
+```
+
+**원인:**
+1. `MetricsModule` 또는 `HealthModule`이 `AppModule`에 등록되지 않음
+2. Docker 볼륨/빌드 캐시 문제로 `dist` 폴더에 반영 안 됨
+3. Nginx 설정에서 경로 중복 전달 (`/metrics/metrics`)
+
+**해결:**
+```bash
+# 1. AppModule 확인
+# MetricsModule, HealthModule이 임포트되어 있는지 확인
+
+# 2. 강제 재빌드
+docker-compose build --no-cache
+
+# 3. Nginx 설정 확인
+# proxy_pass http://board_service/metrics; (X)
+# proxy_pass http://board_service;          (O)
+
+# 4. 재시작
+docker-compose up -d
+```
+
+### 2. Connection Refused (연결 거부)
+
+**증상:**
+Prometheus에서 타겟 `DOWN` 상태
+
+**원인:**
+1. NestJS 서버가 DB 연결 중 (TypeORM 초기화 대기)
+2. Docker 네트워크 내 서비스 이름 해석 문제
+
+**해결:**
+```bash
+# 1. 서버 기동 로그 확인
+docker-compose logs -f board-service-1
+# "Nest application successfully started" 확인
+
+# 2. Health Check 확인
+curl http://localhost/health
+
+# 3. 잠시 대기 후 재확인 (TypeORM 초기화 완료 시까지)
+```
+
+### 3. Package Missing (@nestjs/axios)
+
+**증상:**
+```
+The "@nestjs/axios" package is missing
+```
+
+**원인:**
+`HealthModule`에서 `HttpHealthIndicator`를 사용하지만 의존성 미설치
+
+**해결:**
+```bash
+# 1. 호스트에서 패키지 설치
+cd board-server
+npm install @nestjs/axios axios
+
+# 2. Docker 재빌드
+docker-compose build --no-cache board-service-1
+
+# 3. 재시작
+docker-compose up -d
+```
+
+### 4. Redis 연결 실패
 
 **증상:**
 ```
@@ -776,34 +944,15 @@ docker network inspect app-network
 
 # 3. 환경 변수 확인
 docker exec board-service-1 env | grep REDIS
+# REDIS_HOST=redis
+# REDIS_PORT=6379
 
 # 4. 재시작
 docker-compose restart redis
 docker-compose restart board-service-1
 ```
 
-### 2. Prometheus 타겟 수집 실패
-
-**증상:**
-Prometheus UI에서 타겟 `DOWN` 상태
-
-**원인:**
-- 메트릭 엔드포인트 미노출
-- 방화벽 차단
-
-**해결:**
-```bash
-# 1. 메트릭 엔드포인트 확인
-curl http://localhost/metrics
-
-# 2. Prometheus 설정 검증
-docker exec prometheus cat /etc/prometheus/prometheus.yml
-
-# 3. 서비스 재시작
-docker-compose restart prometheus
-```
-
-### 3. JWT 검증 실패
+### 5. JWT 검증 실패
 
 **증상:**
 ```
@@ -819,6 +968,7 @@ UnauthorizedException: Unauthorized
 # 1. JWT Secret 확인
 docker exec auth-service env | grep JWT_SECRET
 docker exec board-service-1 env | grep JWT_SECRET
+# 두 값이 동일해야 함
 
 # 2. 토큰 재발급
 curl -X POST http://localhost/auth/signin \
@@ -826,7 +976,7 @@ curl -X POST http://localhost/auth/signin \
   -d '{"email":"test@example.com","password":"password123"}'
 ```
 
-### 4. Schema Not Found 에러
+### 6. Schema Not Found 에러
 
 **증상:**
 ```
@@ -845,9 +995,12 @@ error: schema "auth_schema" does not exist
 # 2. DATABASE_URL 확인
 echo $AUTH_DATABASE_URL
 # 반드시 ?schema=auth_schema 포함되어야 함
+
+# 예시:
+# postgresql://postgres:password@host:5432/db?schema=auth_schema
 ```
 
-### 5. Docker Build 실패
+### 7. Docker Build 실패
 
 **증상:**
 ```
@@ -868,6 +1021,122 @@ npm install
 # 2. 캐시 없이 재빌드
 docker-compose build --no-cache board-service-1
 ```
+
+---
+
+## 📜 디버깅 히스토리
+
+### Phase 1: 404 Not Found → Module 등록 및 빌드 문제
+
+**발생 시점:** MSA 전환 직후  
+**증상:** `/metrics`, `/health` 호출 시 `Cannot GET` 응답
+
+**원인 분석:**
+1. `MetricsModule`과 `HealthModule`이 `AppModule`에 등록되었으나 실제 빌드 결과물(`dist`)에 미반영
+2. Docker 볼륨 캐시 문제
+3. Nginx 설정에서 경로 중복 전달 (`proxy_pass http://board_service/metrics;` → `/metrics/metrics`로 전달)
+
+**해결 과정:**
+```bash
+# 1. AppModule에 모듈 임포트 확인
+@Module({
+  imports: [
+    MetricsModule,  // ← 추가
+    HealthModule,   // ← 추가
+    BoardModule,
+  ],
+})
+
+# 2. 강제 재빌드
+docker-compose build --no-cache
+
+# 3. Nginx 설정 수정
+location /metrics {
+  proxy_pass http://board_service;  # /metrics 제거
+}
+```
+
+**결과:** 엔드포인트 정상 인식
+
+---
+
+### Phase 2: Connection Refused → 서비스 초기화 타이밍
+
+**발생 시점:** Prometheus 타겟 수집 중  
+**증상:** Prometheus UI에서 타겟 `DOWN` 상태, Connection Refused
+
+**원인 분석:**
+1. NestJS 서버 기동 시 TypeORM DB 연결 및 초기화 소요
+2. Prometheus가 서버 초기화 완료 전 수집 시도
+
+**해결 과정:**
+```bash
+# 1. 서버 기동 로그 확인
+docker-compose logs -f board-service-1
+# "Nest application successfully started" 대기
+
+# 2. Health Check Endpoint 추가
+@Get()
+@HealthCheck()
+check() {
+  return this.health.check([
+    () => this.db.pingCheck('database'),
+  ]);
+}
+
+# 3. Docker Compose Healthcheck 설정
+healthcheck:
+  test: ["CMD-SHELL", "wget --spider http://localhost:3000/health"]
+  interval: 30s
+  start_period: 40s  # 초기 대기 시간
+```
+
+**결과:** 서버 안정화 후 정상 연결
+
+---
+
+### Phase 3: Package Missing → 의존성 누락
+
+**발생 시점:** `HealthModule` 도입 후  
+**증상:** `The "@nestjs/axios" package is missing` 에러
+
+**원인 분석:**
+`HealthController`에서 `HttpHealthIndicator` 사용하지만 의존성 미설치
+
+**해결 과정:**
+```bash
+# 1. 호스트 환경에서 패키지 설치
+cd board-server
+npm install @nestjs/axios axios
+
+# 2. package.json 확인
+"dependencies": {
+  "@nestjs/axios": "^4.0.1",
+  "axios": "^1.13.4",
+  ...
+}
+
+# 3. Docker 재빌드
+docker-compose build --no-cache board-service-1
+```
+
+**결과:** 의존성 해결, 정상 작동
+
+---
+
+### 최종 상태 (2026-02-03 현재)
+
+✅ **모든 서비스 정상 작동**
+- Auth Service: `/auth/health`, `/auth/metrics` → `200 OK`
+- Board Service (x3): `/health`, `/metrics` → `200 OK`
+- Prometheus Targets: All `UP`
+- Grafana: Dashboards 정상 작동
+
+✅ **핵심 해결 사항**
+1. Module 등록 및 빌드 캐시 문제 해결
+2. Nginx 경로 중복 문제 해결
+3. 서비스 초기화 타이밍 조정 (Health Check + start_period)
+4. 의존성 완전성 확보 (`@nestjs/axios`, `axios`)
 
 ---
 
@@ -919,6 +1188,20 @@ docker-compose build --no-cache board-service-1
   - Let's Encrypt 인증서
   - Nginx SSL Termination
 
+### Phase 7: 운영 자동화
+
+- [ ] **Automated Backup**
+  - 일일 DB 백업 자동화
+  - S3 또는 Object Storage 연동
+
+- [ ] **Alerting**
+  - Grafana Alerting 설정
+  - Slack/Email 알림 통합
+
+- [ ] **Blue-Green Deployment**
+  - 무중단 배포 전략 고도화
+  - Canary Deployment 적용
+
 ---
 
 ## 🤝 기여 가이드
@@ -932,7 +1215,7 @@ git clone https://github.com/YOUR_USERNAME/board-msa.git
 cd auth-server && npm install
 cd ../board-server && npm install
 
-# 3. Pre-commit Hook 설정
+# 3. Pre-commit Hook 설정 (옵션)
 npm install -g husky
 husky install
 ```
@@ -946,6 +1229,7 @@ style: 코드 포맷팅
 refactor: 코드 리팩토링
 test: 테스트 코드 추가
 chore: 빌드 설정 변경
+perf: 성능 개선
 ```
 
 ### Pull Request 프로세스
@@ -973,6 +1257,10 @@ docker exec redis-cache redis-cli INFO memory
 
 # 4. Prometheus 타겟 상태
 curl http://localhost:9090/api/v1/targets
+
+# 5. Health Check 확인
+curl http://localhost/health
+curl http://localhost/auth/health
 ```
 
 ### 주간 점검 사항
@@ -1034,6 +1322,13 @@ ON posts FOR SELECT
 USING (author_id = current_user_id());
 ```
 
+### Nginx 보안 헤더 (추가 권장)
+```nginx
+add_header X-Frame-Options "SAMEORIGIN";
+add_header X-Content-Type-Options "nosniff";
+add_header X-XSS-Protection "1; mode=block";
+```
+
 ---
 
 ## 📚 참고 자료
@@ -1045,12 +1340,15 @@ USING (author_id = current_user_id());
 - [Redis Documentation](https://redis.io/documentation)
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
+- [@nestjs/terminus](https://docs.nestjs.com/recipes/terminus)
+- [@willsoto/nestjs-prometheus](https://github.com/willsoto/nestjs-prometheus)
 
 ### 추천 학습 자료
 
 - [Microservices Patterns](https://microservices.io/patterns/)
 - [12-Factor App](https://12factor.net/)
 - [The DevOps Handbook](https://itrevolution.com/product/the-devops-handbook/)
+- [Redis Best Practices](https://redis.io/docs/manual/patterns/)
 
 ---
 
@@ -1067,7 +1365,7 @@ Copyright (c) 2026 [hsm9411]
 **Author:** [hsm9411]  
 **Email:** your.email@example.com  
 **GitHub:** https://github.com/hsm9411  
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-02-03
 
 ---
 
@@ -1077,6 +1375,14 @@ Copyright (c) 2026 [hsm9411]
 - Nest.js Community
 - Supabase Team
 - Open Source Contributors
+
+---
+
+## 📞 문의 및 지원
+
+- **이슈 리포트:** [GitHub Issues](https://github.com/hsm9411/board-msa/issues)
+- **기능 제안:** [GitHub Discussions](https://github.com/hsm9411/board-msa/discussions)
+- **보안 취약점:** security@example.com (비공개)
 
 ---
 
