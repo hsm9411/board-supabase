@@ -9,13 +9,17 @@ import { redisStore } from 'cache-manager-ioredis-yet';
     NestCacheModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        store: await redisStore({
+      useFactory: async (configService: ConfigService) => {
+        const store = await redisStore({
           host: configService.get<string>('REDIS_HOST', 'localhost'),
           port: configService.get<number>('REDIS_PORT', 6379),
-          ttl: 3600, // 기본 TTL: 1시간
-        }),
-      }),
+        });
+
+        return {
+          store: () => store,
+          ttl: 3600000, // 1시간 (ms)
+        };
+      },
     }),
   ],
   exports: [NestCacheModule],

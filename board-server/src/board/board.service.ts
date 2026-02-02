@@ -2,7 +2,8 @@ import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nest
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+// 'type' 키워드를 추가하세요
+import type { Cache } from 'cache-manager';
 import { Post } from '../entities/post.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { GetPostsDto } from './dto/get-posts.dto';
@@ -13,6 +14,13 @@ interface CachedUserData {
   email: string;
   nickname: string;
 }
+
+// ✅ 개선: 상수로 명확하게 정의
+const CACHE_TTL = {
+  USER: 60 * 60 * 1000,      // 1시간
+  POST_LIST: 10 * 60 * 1000,  // 10분
+  POST_DETAIL: 30 * 60 * 1000 // 30분
+};
 
 @Injectable()
 export class BoardService {
@@ -31,6 +39,7 @@ export class BoardService {
 
     // User 정보를 Redis에 캐싱 (1시간 TTL)
     const cacheKey = `user:${user.id}`;
+    // createPost 메서드 내부 수정
     await this.cacheManager.set(
       cacheKey,
       {
@@ -38,7 +47,7 @@ export class BoardService {
         email: user.email,
         nickname: user.nickname,
       },
-      3600000, // 1시간 (ms)
+      CACHE_TTL.USER, // ← 변경
     );
 
     const post = this.postRepository.create({
@@ -99,7 +108,7 @@ export class BoardService {
     };
 
     // 3. Redis에 캐싱 (10분 TTL)
-    await this.cacheManager.set(cacheKey, result, 600000);
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL.POST_LIST);
 
     return result;
   }
@@ -131,7 +140,7 @@ export class BoardService {
     }
 
     // 3. Redis 캐싱 (30분 TTL)
-    await this.cacheManager.set(cacheKey, post, 1800000);
+    await this.cacheManager.set(cacheKey, post, CACHE_TTL.POST_DETAIL);
 
     return post;
   }
@@ -190,18 +199,21 @@ export class BoardService {
     await this.invalidatePostsCache();
   }
 
-  /**
-   * 게시글 목록 캐시 무효화 (SCAN 기반 - 프로덕션 안전)
-   */
   private async invalidatePostsCache(): Promise<void> {
-    const store = this.cacheManager.store as any;
-    const client = store.client;
+    // cacheManager를 먼저 any로 만들어서 강제로 store를 꺼냄
+    const store = (this.cacheManager as any).store;
     
+    // ✅ Redis client 접근 방식 검증
+    if (!store || typeof store.client?.scan !== 'function') {
+      console.warn('[Cache] Redis SCAN not available, skipping invalidation');
+      return;
+    }
+    
+    const client = store.client;
     let cursor = '0';
     let deletedCount = 0;
     
     do {
-      // SCAN 명령어 사용 (논블로킹)
       const [newCursor, keys] = await client.scan(
         cursor,
         'MATCH',
@@ -219,7 +231,7 @@ export class BoardService {
     } while (cursor !== '0');
     
     if (deletedCount > 0) {
-      console.log(`[Cache Invalidation] Deleted ${deletedCount} post list caches using SCAN`);
+      console.log(`[Cache] Invalidated ${deletedCount} post list caches`);
     }
   }
 
