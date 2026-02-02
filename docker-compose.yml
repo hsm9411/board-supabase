@@ -26,7 +26,12 @@ services:
   auth-service:
     build:
       context: ./auth-server
+      target: development  # <--- [중요] 1단계(development) 이미지만 사용해서 CLI 유지
     container_name: auth-service
+    command: npm run start:dev # 개발 모드 실행
+    volumes:
+      - ./auth-server:/usr/src/app          # 내 소스 코드를 컨테이너에 실시간 연결
+      - /usr/src/app/node_modules           # 컨테이너 안의 node_modules는 보호 (Windows와 충돌 방지)
     environment:
       - DATABASE_URL=${AUTH_DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
@@ -52,7 +57,12 @@ services:
   board-service-1:
     build:
       context: ./board-server
+      target: development  # <--- [중요] 1단계(development) 이미지만 사용해서 CLI 유지
     container_name: board-service-1
+    command: npm run start:dev # 개발 모드 실행
+    volumes:
+      - ./board-server:/usr/src/app
+      - /usr/src/app/node_modules
     environment:
       - DATABASE_URL=${BOARD_DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
@@ -78,7 +88,12 @@ services:
   board-service-2:
     build:
       context: ./board-server
+      target: development  # <--- [중요] 1단계(development) 이미지만 사용해서 CLI 유지
     container_name: board-service-2
+    command: npm run start:dev # 개발 모드 실행
+    volumes:
+      - ./board-server:/usr/src/app          # 내 소스 코드를 컨테이너에 실시간 연결
+      - /usr/src/app/node_modules           # 컨테이너 안의 node_modules는 보호 (Windows와 충돌 방지)
     environment:
       - DATABASE_URL=${BOARD_DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
@@ -104,7 +119,12 @@ services:
   board-service-3:
     build:
       context: ./board-server
+      target: development  # <--- [중요] 1단계(development) 이미지만 사용해서 CLI 유지
     container_name: board-service-3
+    command: npm run start:dev # 개발 모드 실행
+    volumes:
+      - ./board-server:/usr/src/app          # 내 소스 코드를 컨테이너에 실시간 연결
+      - /usr/src/app/node_modules           # 컨테이너 안의 node_modules는 보호 (Windows와 충돌 방지)
     environment:
       - DATABASE_URL=${BOARD_DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
@@ -140,14 +160,18 @@ services:
     networks:
       - app-network
     depends_on:
-      auth-service:
-        condition: service_healthy
-      board-service-1:
-        condition: service_healthy
-      board-service-2:
-        condition: service_healthy
-      board-service-3:
-        condition: service_healthy
+      - auth-service
+      - board-service-1
+      - board-service-2
+      - board-service-3
+      # auth-service:
+      #   condition: service_healthy
+      # board-service-1:
+      #   condition: service_healthy
+      # board-service-2:
+      #   condition: service_healthy
+      # board-service-3:
+      #   condition: service_healthy
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -191,11 +215,11 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3333:3000"
+      - "4000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3333
+      - GF_SERVER_ROOT_URL=http://localhost:4000
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning

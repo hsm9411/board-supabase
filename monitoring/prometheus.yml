@@ -11,6 +11,7 @@ scrape_configs:
 
   # Board Service 메트릭 수집 (3개 레플리카)
   - job_name: 'board-service'
+    scrape_timeout: 10s # 수집 대기 시간을 10초로 연장
     static_configs:
       - targets: 
           - 'board-service-1:3000'
