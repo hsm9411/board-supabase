@@ -191,17 +191,35 @@ export class BoardService {
   }
 
   /**
-   * 게시글 목록 캐시 무효화 (패턴 매칭)
+   * 게시글 목록 캐시 무효화 (SCAN 기반 - 프로덕션 안전)
    */
   private async invalidatePostsCache(): Promise<void> {
-    // ioredis의 keys 명령어 사용 (프로덕션에서는 SCAN 권장)
     const store = this.cacheManager.store as any;
     const client = store.client;
     
-    const keys = await client.keys('posts:*');
-    if (keys.length > 0) {
-      await client.del(...keys);
-      console.log(`[Cache Invalidation] Deleted ${keys.length} post list caches`);
+    let cursor = '0';
+    let deletedCount = 0;
+    
+    do {
+      // SCAN 명령어 사용 (논블로킹)
+      const [newCursor, keys] = await client.scan(
+        cursor,
+        'MATCH',
+        'posts:*',
+        'COUNT',
+        100,
+      );
+      
+      cursor = newCursor;
+      
+      if (keys.length > 0) {
+        await client.del(...keys);
+        deletedCount += keys.length;
+      }
+    } while (cursor !== '0');
+    
+    if (deletedCount > 0) {
+      console.log(`[Cache Invalidation] Deleted ${deletedCount} post list caches using SCAN`);
     }
   }
 

@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Auth Service 메트릭 수집
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:3001']
+    metrics_path: '/metrics'
+
+  # Board Service 메트릭 수집 (3개 레플리카)
+  - job_name: 'board-service'
+    static_configs:
+      - targets: 
+          - 'board-service-1:3000'
+          - 'board-service-2:3000'
+          - 'board-service-3:3000'
+    metrics_path: '/metrics'
+
+  # Node Exporter (시스템 메트릭)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Redis Exporter (추가 예정 시 사용)
+  # - job_name: 'redis-exporter'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
