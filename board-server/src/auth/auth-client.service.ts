@@ -14,18 +14,16 @@ export class AuthClientService {
   private readonly authServiceUrl: string;
 
   constructor(private configService: ConfigService) {
-    this.authServiceUrl = this.configService.get<string>('AUTH_SERVICE_URL') || 'http://auth-service:3001';
+    this.authServiceUrl =
+      this.configService.get<string>('AUTH_SERVICE_URL') || 'http://auth-service:3001';
   }
 
   async getUserById(userId: string, token: string): Promise<UserDto> {
     try {
-      const response = await axios.get(
-        `${this.authServiceUrl}/auth/users/${userId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000,
-        }
-      );
+      const response = await axios.get(`${this.authServiceUrl}/auth/users/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000,
+      });
       return response.data;
     } catch (error) {
       if (error.response?.status === 404) {
@@ -37,15 +35,12 @@ export class AuthClientService {
 
   async getUserByEmail(email: string, token: string): Promise<UserDto> {
     try {
-      const response = await axios.get(
-        `${this.authServiceUrl}/auth/users/email/${email}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000,
-        }
-      );
+      const response = await axios.get(`${this.authServiceUrl}/auth/users/email/${email}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000,
+      });
       return response.data;
-    } catch (error) {
+    } catch {
       throw new HttpException('Auth service unavailable', 503);
     }
   }

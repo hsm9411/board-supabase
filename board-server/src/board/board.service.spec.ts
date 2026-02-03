@@ -75,7 +75,7 @@ describe('BoardService', () => {
       });
       mockPostRepository.save.mockResolvedValue({});
 
-      const result = await service.createPost(createPostDto, user);
+      await service.createPost(createPostDto, user);
 
       expect(mockPostRepository.create).toHaveBeenCalled();
       expect(mockPostRepository.save).toHaveBeenCalled();
