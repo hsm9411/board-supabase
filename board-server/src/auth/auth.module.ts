@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from '../entities/user.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthClientService } from './auth-client.service';  // ✅ 추가
+import { AuthClientService } from './auth-client.service'; // ✅ 추가
 
 @Module({
   imports: [

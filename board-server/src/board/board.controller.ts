@@ -1,4 +1,3 @@
-
 import {
   Body,
   Controller,
@@ -59,11 +58,7 @@ export class BoardController {
   @ApiResponse({ status: 200, description: '수정 성공' })
   @ApiResponse({ status: 403, description: '수정 권한 없음' })
   @ApiResponse({ status: 404, description: '게시글을 찾을 수 없음' })
-  updatePost(
-    @Param('id') id: string,
-    @Body() createPostDto: CreatePostDto,
-    @GetUser() user: User,
-  ) {
+  updatePost(@Param('id') id: string, @Body() createPostDto: CreatePostDto, @GetUser() user: User) {
     return this.boardService.updatePost(id, createPostDto, user);
   }
 

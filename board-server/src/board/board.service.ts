@@ -9,17 +9,11 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { GetPostsDto } from './dto/get-posts.dto';
 import { User } from '../entities/user.entity';
 
-interface CachedUserData {
-  id: string;
-  email: string;
-  nickname: string;
-}
-
 // ✅ 개선: 상수로 명확하게 정의
 const CACHE_TTL = {
-  USER: 60 * 60 * 1000,      // 1시간
-  POST_LIST: 10 * 60 * 1000,  // 10분
-  POST_DETAIL: 30 * 60 * 1000 // 30분
+  USER: 60 * 60 * 1000, // 1시간
+  POST_LIST: 10 * 60 * 1000, // 10분
+  POST_DETAIL: 30 * 60 * 1000, // 30분
 };
 
 @Injectable()
@@ -60,10 +54,10 @@ export class BoardService {
     });
 
     await this.postRepository.save(post);
-    
+
     // 게시글 목록 캐시 무효화
     await this.invalidatePostsCache();
-    
+
     return post;
   }
 
@@ -89,10 +83,9 @@ export class BoardService {
       .orderBy('post.created_at', 'DESC');
 
     if (search) {
-      query.andWhere(
-        '(post.title ILIKE :search OR post.content ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      query.andWhere('(post.title ILIKE :search OR post.content ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     const [posts, total] = await query
@@ -148,11 +141,7 @@ export class BoardService {
   /**
    * 게시글 수정 (캐시 무효화)
    */
-  async updatePost(
-    id: string,
-    updateDto: CreatePostDto,
-    user: User,
-  ): Promise<Post> {
+  async updatePost(id: string, updateDto: CreatePostDto, user: User): Promise<Post> {
     const post = await this.postRepository.findOne({ where: { id } });
 
     if (!post) {
@@ -202,34 +191,28 @@ export class BoardService {
   private async invalidatePostsCache(): Promise<void> {
     // cacheManager를 먼저 any로 만들어서 강제로 store를 꺼냄
     const store = (this.cacheManager as any).store;
-    
+
     // ✅ Redis client 접근 방식 검증
     if (!store || typeof store.client?.scan !== 'function') {
       console.warn('[Cache] Redis SCAN not available, skipping invalidation');
       return;
     }
-    
+
     const client = store.client;
     let cursor = '0';
     let deletedCount = 0;
-    
+
     do {
-      const [newCursor, keys] = await client.scan(
-        cursor,
-        'MATCH',
-        'posts:*',
-        'COUNT',
-        100,
-      );
-      
+      const [newCursor, keys] = await client.scan(cursor, 'MATCH', 'posts:*', 'COUNT', 100);
+
       cursor = newCursor;
-      
+
       if (keys.length > 0) {
         await client.del(...keys);
         deletedCount += keys.length;
       }
     } while (cursor !== '0');
-    
+
     if (deletedCount > 0) {
       console.log(`[Cache] Invalidated ${deletedCount} post list caches`);
     }

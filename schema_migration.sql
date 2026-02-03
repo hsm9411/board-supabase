@@ -65,16 +65,13 @@ CREATE INDEX IF NOT EXISTS idx_board_posts_search
   ON board_schema.posts 
   USING gin(to_tsvector('english', title || ' ' || content));
 
--- Cached Users 테이블 (Deprecated - Redis로 대체 예정)
-CREATE TABLE IF NOT EXISTS board_schema.cached_users (
-  id uuid PRIMARY KEY,
-  email text NOT NULL,
-  nickname text NOT NULL,
-  last_synced_at timestamp with time zone DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_board_cached_users_id 
-  ON board_schema.cached_users(id);
+-- ❌ 제거됨: Cached Users 테이블 (Redis로 대체)
+-- CREATE TABLE IF NOT EXISTS board_schema.cached_users (
+--   id uuid PRIMARY KEY,
+--   email text NOT NULL,
+--   nickname text NOT NULL,
+--   last_synced_at timestamp with time zone DEFAULT now()
+-- );
 
 -- ========================================
 -- 4. RLS (Row Level Security) 설정
