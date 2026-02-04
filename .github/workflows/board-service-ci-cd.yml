@@ -13,6 +13,7 @@ on:
       - develop
     paths:
       - 'board-server/**'
+  workflow_dispatch:
 
 jobs:
   test:
