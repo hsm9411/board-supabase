@@ -1,4 +1,4 @@
-name: Auth Service CI/CD
+name: Board Service CI/CD
 
 on:
   push:
@@ -6,20 +6,20 @@ on:
       - main
       - develop
     paths:
-      - 'auth-server/**'
+      - 'board-server/**'
   pull_request:
     branches:
       - main
       - develop
     paths:
-      - 'auth-server/**'
+      - 'board-server/**'
 
 jobs:
   test:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: auth-server
+        working-directory: board-server
 
     steps:
       - name: Checkout code
@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: auth-server/package-lock.json
+          cache-dependency-path: board-server/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -62,29 +62,33 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./auth-server
+          context: ./board-server
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/auth-service:${{ github.sha }}
-            ${{ secrets.DOCKER_USERNAME }}/auth-service:latest
+            ${{ secrets.DOCKER_USERNAME }}/board-service:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/board-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          
+deploy-prod:
+  needs: build
+  runs-on: ubuntu-latest
+  if: github.ref == 'refs/heads/main'
+  environment: production
 
-  deploy-prod:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: production
-
-    steps:
-      - name: Deploy to Production Server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.PROD_SERVER_HOST }}
-          username: ${{ secrets.PROD_SERVER_USER }}
-          key: ${{ secrets.PROD_SERVER_SSH_KEY }}
-          script: |
-            cd /app
-            docker compose -f docker-compose.prod.yml pull auth-service
-            docker compose -f docker-compose.prod.yml up -d auth-service --no-deps
-            docker image prune -f
+  steps:
+    - name: Deploy to Production (Rolling Update)
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.PROD_SERVER_HOST }}
+        username: ${{ secrets.PROD_SERVER_USER }}
+        key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+        script: |
+          cd /app
+          # Rolling Update: 한 번에 하나씩 재시작
+          for service in board-service-1 board-service-2 board-service-3; do
+            docker compose -f docker-compose.prod.yml pull $service
+            docker compose -f docker-compose.prod.yml up -d $service --no-deps
+            sleep 10
+          done
+          docker image prune -f
