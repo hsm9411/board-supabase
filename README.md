@@ -1465,7 +1465,7 @@ Copyright (c) 2026 [hsm9411]
 ## 👨‍💻 작성자
 
 **Author:** [hsm9411]  
-**Email:** your.email@example.com  
+**Email:** haeha2e@gmail.com
 **GitHub:** https://github.com/hsm9411  
 **Last Updated:** 2026-02-03
 
@@ -1484,7 +1484,7 @@ Copyright (c) 2026 [hsm9411]
 
 - **이슈 리포트:** [GitHub Issues](https://github.com/hsm9411/board-msa/issues)
 - **기능 제안:** [GitHub Discussions](https://github.com/hsm9411/board-msa/discussions)
-- **보안 취약점:** security@example.com (비공개)
+- **보안 취약점:** haeha2e@gmail.com (비공개)
 
 ---
 
