@@ -1,0 +1,45 @@
+name: Infra Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'nginx.conf'
+      - 'monitoring/prometheus.yml'
+      - 'monitoring/grafana/provisioning/**'
+      - 'docker-compose.prod.yml'
+
+  workflow_dispatch:
+
+jobs:
+  deploy-infra:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync infra files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+          source: |
+            nginx.conf
+            monitoring/prometheus.yml
+            monitoring/grafana/provisioning
+            docker-compose.prod.yml
+          target: /app
+          overwrite: true
+
+      - name: Recreate affected containers
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+          script: |
+            cd /app
+            docker compose -f docker-compose.prod.yml up -d nginx prometheus grafana --no-deps --force-recreate
