@@ -20,7 +20,6 @@ jobs:
     defaults:
       run:
         working-directory: board-server
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,7 +44,6 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,26 +67,23 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/board-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          
-deploy-prod:
-  needs: build
-  runs-on: ubuntu-latest
-  if: github.ref == 'refs/heads/main'
-  environment: production
 
-  steps:
-    - name: Deploy to Production (Rolling Update)
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.PROD_SERVER_HOST }}
-        username: ${{ secrets.PROD_SERVER_USER }}
-        key: ${{ secrets.PROD_SERVER_SSH_KEY }}
-        script: |
-          cd /app
-          # Rolling Update: 한 번에 하나씩 재시작
-          for service in board-service-1 board-service-2 board-service-3; do
-            docker compose -f docker-compose.prod.yml pull $service
-            docker compose -f docker-compose.prod.yml up -d $service --no-deps
-            sleep 10
-          done
-          docker image prune -f
+  deploy-prod:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to Production (Rolling Update)
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+          script: |
+            cd /app
+            for service in board-service-1 board-service-2 board-service-3; do
+              docker compose -f docker-compose.prod.yml pull $service
+              docker compose -f docker-compose.prod.yml up -d $service --no-deps
+              sleep 10
+            done
+            docker image prune -f
