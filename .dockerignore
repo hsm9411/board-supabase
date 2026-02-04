@@ -10,3 +10,8 @@ README.md
 .dockerignore
 dockerfile
 docker-compose.yml
+
+### infra cicd를 위한
+!docker-compose.prod.yml
+!nginx.conf
+!monitoring/
