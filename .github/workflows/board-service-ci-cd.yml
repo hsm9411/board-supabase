@@ -71,7 +71,7 @@ jobs:
   deploy-prod:
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Deploy to Production (Rolling Update)
         uses: appleboy/ssh-action@v1.0.0
