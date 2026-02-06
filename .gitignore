@@ -64,3 +64,9 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 **/.env.development
 **/.env.test
 **/.env.production
+
+# Claude Code files and installation script
+AI_MEMORY.md
+CLAUDE.md
+install.cmd
+install.ps1
