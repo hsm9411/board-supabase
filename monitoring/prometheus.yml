@@ -24,7 +24,7 @@ scrape_configs:
     static_configs:
       - targets: ['node-exporter:9100']
 
-  # Redis Exporter (추가 예정 시 사용)
-  # - job_name: 'redis-exporter'
-  #   static_configs:
-  #     - targets: ['redis-exporter:9121']
+  # Redis Exporter
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']

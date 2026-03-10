@@ -31,10 +31,12 @@ export class MetricsInterceptor implements NestInterceptor {
         },
         error: (error) => {
           const duration = (Date.now() - start) / 1000;
+          const statusCode: number = error.status || 500;
+          const statusGroup = `${Math.floor(statusCode / 100)}xx`;
           this.httpRequestsCounter.inc({
             method,
             route: route?.path || 'unknown',
-            status: error.status || '5xx',
+            status: statusGroup,
           });
           this.httpRequestDuration.observe({ method, route: route?.path || 'unknown' }, duration);
         },

@@ -14,6 +14,7 @@ import { GetUser } from 'src/auth/get-user.decorator';
 import { User } from 'src/entities/user.entity';
 import { BoardService } from './board.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { GetPostsDto } from './dto/get-posts.dto';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
@@ -54,12 +55,12 @@ export class BoardController {
 
   @Patch('/:id')
   @UseGuards(AuthGuard())
-  @ApiOperation({ summary: '게시글 수정' })
+  @ApiOperation({ summary: '게시글 수정 (부분 업데이트 가능)' })
   @ApiResponse({ status: 200, description: '수정 성공' })
   @ApiResponse({ status: 403, description: '수정 권한 없음' })
   @ApiResponse({ status: 404, description: '게시글을 찾을 수 없음' })
-  updatePost(@Param('id') id: string, @Body() createPostDto: CreatePostDto, @GetUser() user: User) {
-    return this.boardService.updatePost(id, createPostDto, user);
+  updatePost(@Param('id') id: string, @Body() updatePostDto: UpdatePostDto, @GetUser() user: User) {
+    return this.boardService.updatePost(id, updatePostDto, user);
   }
 
   @Delete('/:id')

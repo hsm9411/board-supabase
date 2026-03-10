@@ -7,6 +7,9 @@ on:
     # 인프라 관련 파일이 수정될 때만 작동하도록 최적화
     paths:
       - 'nginx.conf'
+      - 'nginx.conf.init'
+      - 'scripts/init-ssl.sh'
+      - 'scripts/duckdns-renew.sh'
       - 'monitoring/prometheus.yml'
       - 'monitoring/grafana/provisioning/**'
       - 'docker-compose.prod.yml'
@@ -35,7 +38,7 @@ jobs:
           username: ${{ secrets.PROD_SERVER_USER }}
           key: ${{ secrets.PROD_SERVER_SSH_KEY }}
           # 콤마 뒤에 공백 없이 작성하는 것이 가장 안전함
-          source: "nginx.conf,monitoring/prometheus.yml,monitoring/grafana/provisioning/**,docker-compose.prod.yml"
+          source: "nginx.conf,nginx.conf.init,scripts/init-ssl.sh,scripts/duckdns-renew.sh,monitoring/prometheus.yml,monitoring/grafana/provisioning/**,docker-compose.prod.yml"
           target: "/app"
           strip_components: 0 # 폴더 구조 유지
           overwrite: true

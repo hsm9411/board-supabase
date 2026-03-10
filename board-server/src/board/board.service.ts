@@ -6,6 +6,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { Post } from '../entities/post.entity';
 import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { GetPostsDto } from './dto/get-posts.dto';
 import { User } from '../entities/user.entity';
 
@@ -66,7 +67,10 @@ export class BoardService {
    */
   async getPosts(getPostsDto: GetPostsDto) {
     const { page, limit, search } = getPostsDto;
-    const cacheKey = `posts:page=${page}:limit=${limit}:search=${search || 'none'}`;
+    // version을 캐시 키에 포함: invalidatePostsCache()가 version을 올리면
+    // 이전 버전의 캐시 키는 자동으로 무시되고 DB를 다시 읽음
+    const version = await this.cacheManager.get<number>('posts:version') ?? 0;
+    const cacheKey = `posts:v${version}:page=${page}:limit=${limit}:search=${search || 'none'}`;
 
     // 1. Redis에서 캐싱된 데이터 확인
     const cached = await this.cacheManager.get(cacheKey);
@@ -141,7 +145,7 @@ export class BoardService {
   /**
    * 게시글 수정 (캐시 무효화)
    */
-  async updatePost(id: string, updateDto: CreatePostDto, user: User): Promise<Post> {
+  async updatePost(id: string, updateDto: UpdatePostDto, user: User): Promise<Post> {
     const post = await this.postRepository.findOne({ where: { id } });
 
     if (!post) {
@@ -152,11 +156,10 @@ export class BoardService {
       throw new ForbiddenException('You can only update your own posts');
     }
 
-    post.title = updateDto.title;
-    post.content = updateDto.content;
-    if (updateDto.isPublic !== undefined) {
-      post.isPublic = updateDto.isPublic;
-    }
+    // UpdatePostDto는 모든 필드가 optional이므로, 전달된 필드만 선택적으로 덮어쓰는게 정확한 PATCH 의미론
+    if (updateDto.title !== undefined) post.title = updateDto.title;
+    if (updateDto.content !== undefined) post.content = updateDto.content;
+    if (updateDto.isPublic !== undefined) post.isPublic = updateDto.isPublic;
 
     await this.postRepository.save(post);
 
@@ -189,33 +192,14 @@ export class BoardService {
   }
 
   private async invalidatePostsCache(): Promise<void> {
-    // cacheManager를 먼저 any로 만들어서 강제로 store를 꺼냄
-    const store = (this.cacheManager as any).store;
-
-    // ✅ Redis client 접근 방식 검증
-    if (!store || typeof store.client?.scan !== 'function') {
-      console.warn('[Cache] Redis SCAN not available, skipping invalidation');
-      return;
-    }
-
-    const client = store.client;
-    let cursor = '0';
-    let deletedCount = 0;
-
-    do {
-      const [newCursor, keys] = await client.scan(cursor, 'MATCH', 'posts:*', 'COUNT', 100);
-
-      cursor = newCursor;
-
-      if (keys.length > 0) {
-        await client.del(...keys);
-        deletedCount += keys.length;
-      }
-    } while (cursor !== '0');
-
-    if (deletedCount > 0) {
-      console.log(`[Cache] Invalidated ${deletedCount} post list caches`);
-    }
+    // Version 기반 캐시 무효화
+    // SCAN으로 키를 순회하지 않고, version 카운터만 1 올림.
+    // 기존 캐시 항목들은 TTL이 만료되면 자연히 제거되고,
+    // 새 요청은 새 version의 키로 조회하므로 자동으로 DB를 다시 읽게 됨.
+    const VERSION_KEY = 'posts:version';
+    const current = await this.cacheManager.get<number>(VERSION_KEY) ?? 0;
+    await this.cacheManager.set(VERSION_KEY, current + 1, 0);
+    console.log(`[Cache] Post list version bumped to ${current + 1}`);
   }
 
   /**

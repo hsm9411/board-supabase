@@ -1,0 +1,34 @@
+# nginx.conf.init — 최초 인증서 발급 전용 임시 설정
+#
+# 사용 목적:
+#   인증서가 아직 없는 상태에서 certbot ACME challenge를 받아내기 위한
+#   HTTP 전용 nginx 설정. 인증서 발급 성공 후에는 nginx.conf (HTTPS)로 교체.
+#
+# 사용 방법 (서버에서):
+#   1. cp nginx.conf.init nginx.conf.tmp
+#   2. docker run --rm -v $(pwd)/nginx.conf.tmp:/etc/nginx/nginx.conf:ro \
+#        -v certbot-www:/var/www/certbot \
+#        -p 80:80 nginx:latest
+#   → 또는 아래 init-cert.sh 스크립트 사용 권장
+
+events {
+  worker_connections 1024;
+}
+
+http {
+  server {
+    listen 80;
+    server_name hsm9411-board.duckdns.org;
+
+    # ACME challenge만 처리 (certbot 소유권 검증)
+    location /.well-known/acme-challenge/ {
+      root /var/www/certbot;
+    }
+
+    # 그 외 요청은 일단 200 반환 (서비스는 아직 없음)
+    location / {
+      return 200 'waiting for SSL setup';
+      add_header Content-Type text/plain;
+    }
+  }
+}

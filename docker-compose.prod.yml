@@ -86,8 +86,13 @@ services:
     container_name: api-gateway
     ports:
       - "80:80"
+      - "443:443"   # HTTPS 포트 추가
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # certbot이 발급한 인증서를 nginx가 읽을 수 있도록 볼륨 공유
+      - certbot-conf:/etc/letsencrypt:ro
+      # ACME challenge 검증 파일 공유 (certbot이 쓰고, nginx가 서빙)
+      - certbot-www:/var/www/certbot:ro
     networks:
       - app-network
     depends_on:
@@ -95,6 +100,21 @@ services:
       - board-service-1
       - board-service-2
       - board-service-3
+    restart: unless-stopped
+
+  # ============================================================
+  # Certbot: Let's Encrypt 인증서 발급 및 자동 갱신
+  # 평소에는 잠들어 있다가(entrypoint sleep) 12시간마다 갱신 시도
+  # 인증서는 90일 유효, 만료 30일 전부터 갱신 가능
+  # ============================================================
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    volumes:
+      - certbot-conf:/etc/letsencrypt  # 인증서 저장소 (nginx와 공유)
+      - certbot-www:/var/www/certbot   # ACME challenge 파일 (nginx와 공유)
+    # 12시간마다 갱신 시도. certbot renew는 만료 30일 전이 아니면 아무것도 안 함 (안전)
+    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew; sleep 12h & wait ${!}; done"
     restart: unless-stopped
 
   prometheus:
@@ -149,6 +169,8 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+  certbot-conf:   # Let's Encrypt 인증서 저장소
+  certbot-www:    # ACME challenge 임시 파일 저장소
 
 networks:
   app-network:
