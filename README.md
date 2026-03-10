@@ -1,12 +1,13 @@
 # 🚀 Scalable Bulletin Board System
 
 [![Production Ready](https://img.shields.io/badge/Production-Ready-brightgreen)](http://152.67.216.145)
-[![NestJS](https://img.shields.io/badge/NestJS-11.x-e0234e)](https://nestjs.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-11.0.1-e0234e)](https://nestjs.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7.3-blue)](https://www.typescriptlang.org/)
+[![TypeORM](https://img.shields.io/badge/TypeORM-0.3.28-orange)](https://typeorm.io/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **NestJS** + **Supabase PostgreSQL** + **Redis** + **Docker**로 구축한 **프로덕션급 MSA 게시판**
+> **NestJS** + **TypeORM** + **Supabase PostgreSQL** + **Redis** + **Docker**로 구축한 **프로덕션급 MSA 게시판**
 > Redis 캐싱으로 **조회 성능 10배** 향상, Prometheus/Grafana 실시간 모니터링, GitHub Actions CI/CD 완비
 
 **🌐 Live Demo**: [http://152.67.216.145](http://152.67.216.145)
@@ -32,7 +33,8 @@
 <td width="50%">
 
 **Backend & Infrastructure**
-- **Framework**: NestJS 11.x
+- **Framework**: NestJS 11.0.1
+- **ORM**: TypeORM 0.3.28
 - **Runtime**: Node.js 22 (Alpine)
 - **Database**: Supabase PostgreSQL
 - **Cache**: Redis 7-alpine
@@ -47,7 +49,7 @@
 - **Dashboard**: Grafana
 - **CI/CD**: GitHub Actions
 - **Cloud**: Oracle Cloud (OCI Free Tier)
-- **Security**: UFW Firewall, JWT Auth
+- **Security**: UFW Firewall, JWT + Bcrypt Auth
 
 </td>
 </tr>
@@ -224,8 +226,8 @@ supabase_database
         ├── content (TEXT)
         ├── is_public (BOOLEAN)
         ├── author_id (UUID)
-        ├── author_nickname (VARCHAR)  ✅ 비정규화
-        ├── author_email (VARCHAR)     ✅ 비정규화
+        ├── author_nickname (VARCHAR)  # 비정규화
+        ├── author_email (VARCHAR)     # 비정규화
         ├── created_at, updated_at
 ```
 
@@ -415,11 +417,12 @@ curl http://152.67.216.145:9090/api/v1/targets
 
 ## 🔒 보안
 
-- ✅ **JWT 인증**: Passport JWT Strategy
-- ✅ **비밀번호 해싱**: Bcrypt
+- ✅ **JWT 인증**: Passport JWT Strategy (자체 JWT 발급)
+- ✅ **비밀번호 해싱**: Bcrypt (Salt Rounds: 10)
 - ✅ **UFW 방화벽**: 22, 80, 443 포트만 허용
 - ✅ **환경 변수**: .env 파일로 민감 정보 관리
-- ✅ **RLS (Row Level Security)**: Supabase 정책 적용
+- ✅ **RLS (Row Level Security)**: Supabase PostgreSQL 정책 적용
+- ✅ **API 인증**: Bearer Token 방식
 
 ---
 
@@ -462,23 +465,31 @@ rate(http_requests_total{status=~"5.."}[5m])
 
 ---
 
-## 🎉 최근 개선 사항 (2026-02-06)
+## 🎉 최근 개선 사항 (2026-02-11)
+
+### 인증 시스템 안정화
+- ✅ Passport.js JWT 전략 적용
+- ✅ Bcrypt 비밀번호 해싱 구현
+- ✅ 사용자 정보 조회 API 완성
+- ✅ JWT 검증 로직 최적화
 
 ### 프로덕션 배포 완료
-- ✅ Oracle Cloud 서버 구축
-- ✅ UFW 방화벽 설정
-- ✅ 스왑 메모리 2GB 설정
+- ✅ Oracle Cloud 서버 구축 (1 vCPU, 1GB RAM + 2GB Swap)
+- ✅ UFW 방화벽 설정 (포트 22, 80, 443)
 - ✅ deploy.sh 스크립트 작성
+- ✅ GitHub Actions CI/CD 파이프라인 구성
 
 ### 인프라 최적화
-- ✅ Redis LRU 정책 적용
-- ✅ Prometheus 타임아웃 10초 설정
-- ✅ Alpine 이미지 사용 (크기 감소)
+- ✅ Redis LRU 정책 적용 (maxmemory 256mb)
+- ✅ Prometheus scrape interval 15초 설정
+- ✅ Alpine 이미지 사용 (경량화)
+- ✅ Board Service 3-replica 로드 밸런싱
 
 ### 문서화 강화
 - ✅ README 3계층 정보 아키텍처 적용
 - ✅ 6개 상세 문서 작성 (API, 배포, 트러블슈팅 등)
 - ✅ docs/ 폴더 구조화
+- ✅ 각 모듈별 README.md 작성
 
 ---
 
@@ -534,10 +545,10 @@ MIT License - [LICENSE](LICENSE) 파일 참조
 
 ## 👨‍💻 작성자
 
-**Author**: hsm9411
-**Email**: haeha2e@gmail.com
-**GitHub**: https://github.com/hsm9411
-**Last Updated**: 2026-02-06
+**Author**: hsm9411  
+**Email**: haeha2e@gmail.com  
+**GitHub**: https://github.com/hsm9411  
+**Last Updated**: 2026-02-11  
 
 ---
 

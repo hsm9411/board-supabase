@@ -232,6 +232,22 @@ services:
       retries: 3
 
   # ========================================
+  # Redis Exporter
+  # ========================================
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    networks:
+      - app-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ========================================
   # Node Exporter
   # ========================================
   node-exporter:
