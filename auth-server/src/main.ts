@@ -27,9 +27,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  if (process.env.NODE_ENV !== 'production') {
-    SwaggerModule.setup('api', app, document);
-  }
+  SwaggerModule.setup('api', app, document);
 
   app.useGlobalPipes(
     new ValidationPipe({

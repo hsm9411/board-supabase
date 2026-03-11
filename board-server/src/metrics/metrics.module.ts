@@ -24,6 +24,17 @@ import { MetricsInterceptor } from '../common/interceptors/metrics.interceptor';
       help: 'HTTP request duration in seconds',
       labelNames: ['method', 'route'],
     }),
+    // Cache 메트릭
+    makeCounterProvider({
+      name: 'cache_hits_total',
+      help: 'Total number of cache hits',
+      labelNames: ['type'], // 'post_list', 'post_detail'
+    }),
+    makeCounterProvider({
+      name: 'cache_misses_total',
+      help: 'Total number of cache misses',
+      labelNames: ['type'],
+    }),
     MetricsInterceptor,
   ],
   exports: [PrometheusModule, MetricsInterceptor],
