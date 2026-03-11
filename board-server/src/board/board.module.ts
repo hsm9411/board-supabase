@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { AuthModule } from 'src/auth/auth.module';
+import { MetricsModule } from 'src/metrics/metrics.module';
 import { Post } from 'src/entities/post.entity';
 import { BoardController } from './board.controller';
 
@@ -20,9 +21,10 @@ const QueryHandlers = [GetPostsHandler, GetPostByIdHandler, GetMyPostsHandler];
 
 @Module({
   imports: [
-    CqrsModule,           // CommandBus, QueryBus 제공
+    CqrsModule,
     TypeOrmModule.forFeature([Post]),
     AuthModule,
+    MetricsModule,        // cache_hits_total, cache_misses_total 토큰 제공
   ],
   controllers: [BoardController],
   // BoardService 제거. 핸들러들이 그 역할을 각각 담당.
