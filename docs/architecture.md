@@ -1,8 +1,7 @@
 # 시스템 아키텍처
 
 > **프로젝트**: Scalable Bulletin Board System
-> **버전**: 2.3.0
-> **업데이트**: 2026-02-06
+> **업데이트**: 2026-03-11
 
 ---
 
@@ -13,7 +12,6 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Internet (Public)                     │
-│                  http://152.67.216.145                   │
 └────────────────────────┬────────────────────────────────┘
                          │
             ┌────────────▼────────────┐
@@ -496,41 +494,14 @@ docker compose up -d board-service-3 --no-deps
 
 ---
 
-## 📈 성능 지표
+## 📈 캐싱 효과
 
-### 캐싱 효과
+Cache-Aside 패턴을 적용하면 동일 파라미터의 반복 조회는 Redis에서 응답하므로 DB 쿼리가 줄어듭니다. OCI Free Tier(1 vCPU / 1GB RAM) 환경에서 실제 측정한 수치는 없으며, 효과는 캐시 히트율과 서버 부하에 따라 달라집니다.
 
-| 지표 | Before | After | 개선율 |
-|------|--------|-------|--------|
-| 응답 시간 | 200ms | 20ms | **10배** |
-| DB 쿼리 수 | 100/s | 10/s | **90% 감소** |
-| 동시 처리 | 50 req/s | 500 req/s | **10배** |
+Prometheus의 `cache_hits_total` / `cache_misses_total` 메트릭으로 운영 중 실제 히트율을 확인할 수 있습니다.
 
-### 로드 밸런싱 효과
-
-| 시나리오 | 1-replica | 3-replica | 개선율 |
-|---------|-----------|-----------|--------|
-| 최대 RPS | 100 | 300 | **3배** |
-| 장애 복구 | 즉시 중단 | 무중단 | **100%** |
-
----
-
-## 🔮 향후 계획
-
-### Phase 3: Event-Driven Architecture
-```
-User 정보 변경 → Kafka Event → Board Service 캐시 갱신
-```
-
-### Phase 4: Kubernetes
-```
-Docker Compose → K8s Deployment + Service + Ingress
-```
-
-### Phase 5: Database Sharding
-```
-단일 Supabase → Shard 1 (users 1-1000)
-                Shard 2 (users 1001-2000)
+```promql
+rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) * 100
 ```
 
 ---
@@ -545,5 +516,5 @@ Docker Compose → K8s Deployment + Service + Ingress
 
 ---
 
-**Last Updated**: 2026-02-06
+**Last Updated**: 2026-03-11
 **Author**: hsm9411

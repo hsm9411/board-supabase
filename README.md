@@ -1,28 +1,28 @@
-# 🚀 Scalable Bulletin Board System
+# Scalable Bulletin Board System
 
-[![Production Ready](https://img.shields.io/badge/Production-Ready-brightgreen)](http://152.67.216.145)
 [![NestJS](https://img.shields.io/badge/NestJS-11.0.1-e0234e)](https://nestjs.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7.3-blue)](https://www.typescriptlang.org/)
 [![TypeORM](https://img.shields.io/badge/TypeORM-0.3.28-orange)](https://typeorm.io/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **NestJS** + **TypeORM** + **Supabase PostgreSQL** + **Redis** + **Docker**로 구축한 **프로덕션급 MSA 게시판**
-> Redis 캐싱으로 **조회 성능 10배** 향상, Prometheus/Grafana 실시간 모니터링, GitHub Actions CI/CD 완비
-
-**🌐 Live Demo**: [http://152.67.216.145](http://152.67.216.145)
+> MSA 아키텍처 학습을 목적으로 제작한 NestJS 게시판 백엔드입니다.
+> Auth/Board 서비스를 분리하고, Redis 캐싱·Nginx 로드밸런싱·Prometheus/Grafana 모니터링을 직접 구성하며 운영해봤습니다.
+> OCI Free Tier에서 실제 운영했으며 현재는 서버를 종료했습니다.
 
 ---
 
-## ✨ 핵심 기능
+## ✨ 구현 내용
 
-| 기능 | 설명 | 효과 |
-|------|------|------|
-| **MSA 아키텍처** | Auth + Board 서비스 분리, Schema Separation | 서비스 독립성 보장 |
-| **Redis 캐싱** | Cache-Aside 패턴, LRU 정책 | 응답 속도 **10배** 향상 |
-| **고가용성** | 3-replica 로드 밸런싱, 무중단 배포 | 99.9% 가용성 |
-| **실시간 모니터링** | Prometheus + Grafana | P95 응답 시간, 에러율 추적 |
-| **자동화 배포** | GitHub Actions CI/CD | 테스트 → 빌드 → 배포 자동화 |
+| 항목 | 설명 |
+|------|------|
+| **MSA 구조** | Auth Service + Board Service 분리, Schema Separation (auth_schema / board_schema) |
+| **CQRS 패턴** | Board Service를 Command/Query 핸들러 6개로 분리 |
+| **Redis 캐싱** | Cache-Aside 패턴, Version 기반 캐시 무효화 |
+| **로드 밸런싱** | Nginx Round-Robin, Board Service 3 replica |
+| **모니터링** | Prometheus metrics 수집 (HTTP, 캐시 히트율, 메모리), Grafana 대시보드 |
+| **HTTPS** | DuckDNS + Let's Encrypt certbot 자동 갱신 |
+| **CI/CD** | GitHub Actions → OCI 서버 자동 배포 |
 
 ---
 
@@ -49,7 +49,7 @@
 - **Dashboard**: Grafana
 - **CI/CD**: GitHub Actions
 - **Cloud**: Oracle Cloud (OCI Free Tier)
-- **Security**: UFW Firewall, JWT + Bcrypt Auth
+- **Security**: UFW, JWT + Bcrypt, HTTPS (Let's Encrypt)
 
 </td>
 </tr>
@@ -67,76 +67,58 @@
 ### 2️⃣ Clone & Setup
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/YOUR_USERNAME/board-msa.git
-cd board-msa
+git clone https://github.com/hsm9411/board-supabase.git
+cd board-supabase
 
-# 2. 환경 변수 설정
 cp .env.example .env
-# .env 파일 수정 (Supabase URL, JWT_SECRET)
+# .env 파일 수정 (Supabase URL, JWT_SECRET 등)
 
-# 3. DB 초기화 (Supabase SQL Editor에서)
-# schema_migration.sql 전체 내용 복사 후 실행
+# Supabase SQL Editor에서 schema_migration.sql 실행
 ```
 
 ### 3️⃣ Run
 
 ```bash
-# Docker Compose로 전체 스택 실행
 docker-compose up -d
-
-# 로그 확인
 docker-compose logs -f
 ```
 
 ### 4️⃣ Access
 
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| 🌐 Swagger (Board) | http://localhost/api | - |
-| 🔐 Swagger (Auth) | http://localhost/auth/api | - |
-| 📊 Grafana | http://localhost:4000 | admin / admin |
-| 📈 Prometheus | http://localhost:9090 | - |
+| Service | URL | 비고 |
+|---------|-----|------|
+| Swagger (Board) | http://localhost/api | - |
+| Swagger (Auth) | http://localhost/auth/api | - |
+| Grafana | http://localhost:4000 | admin / admin |
+| Prometheus | http://localhost:9090 | - |
 
 ---
 
 ## 🏗️ 시스템 아키텍처
 
 ```
-┌─────────────────────────────────────────┐
-│         Internet (Public)                │
-│      http://152.67.216.145               │
-└────────────────┬────────────────────────┘
-                 │
-        ┌────────▼─────────┐
-        │  Nginx Gateway   │
-        │  Load Balancer   │
-        └────┬─────────┬───┘
-             │         │
-    ┌────────▼──┐   ┌─▼─────────────┐
-    │   Auth    │   │  Board x3     │
-    │  Service  │   │  (Replicas)   │
-    │  (3001)   │   │   (3000)      │
-    └────┬──────┘   └──┬────────────┘
-         │             │
-         │    ┌────────┴──┐
-         │    │           │
-      ┌──▼────▼──┐  ┌────▼────┐
-      │ Supabase │  │  Redis  │
-      │PostgreSQL│  │  Cache  │
-      └──────────┘  └─────────┘
+Internet
+    │
+  UFW Firewall (22, 80, 443)
+    │
+Nginx (API Gateway + Load Balancer)
+    ├── /auth/*  →  Auth Service (3001)
+    └── /*       →  Board Service x3 (3000)  Round-Robin
 
-      ┌─────────────────────┐
-      │   Monitoring         │
-      │ Prometheus/Grafana   │
-      └─────────────────────┘
+Auth Service              Board Service (x3, CQRS)
+    │                          │
+    └── Supabase (auth_schema) ├── Supabase (board_schema)
+                               └── Redis (Cache-Aside)
+
+Monitoring
+    ├── Prometheus (9090)  ←  /metrics (board x3, auth, redis-exporter, node-exporter)
+    └── Grafana    (4000)  ←  Prometheus DataSource
 ```
 
-**주요 특징**:
-- ✅ **Schema Separation**: `auth_schema` ↔ `board_schema` 완전 분리
-- ✅ **Load Balancing**: Board Service 3대 Round-Robin
-- ✅ **Cache-Aside Pattern**: Redis로 DB 부하 90% 감소
-- ✅ **Health Check**: `/health`, `/auth/health` 엔드포인트
+**설계 포인트**:
+- **Schema Separation**: `auth_schema` ↔ `board_schema` 논리적 분리. 서비스 간 직접 JOIN 없음
+- **비정규화**: `author_nickname`, `author_email`을 posts 테이블에 직접 저장하여 게시글 조회 시 Auth Service 호출 없이 단일 쿼리로 완결
+- **Version 기반 캐시 무효화**: CUD 발생 시 `posts:version` 숫자를 증가시켜 기존 캐시 키를 자동으로 무효화. `KEYS *` 같은 O(N) Redis 명령을 피할 수 있음
 
 > 📖 **상세 아키텍처**: [docs/architecture.md](./docs/architecture.md)
 
@@ -146,12 +128,12 @@ docker-compose logs -f
 
 | 문서 | 설명 |
 |------|------|
-| [📡 API 명세서](./docs/api-spec.md) | Auth & Board API 엔드포인트, Request/Response, cURL 예제 |
-| [🚀 배포 가이드](./docs/deployment.md) | 로컬 개발, OCI 프로덕션 배포, CI/CD 파이프라인 |
-| [🐛 트러블슈팅](./docs/troubleshooting.md) | 자주 발생하는 문제 및 해결 방법 (ESLint, TypeORM, Redis 등) |
-| [⚡ 성능 최적화](./docs/performance.md) | Redis 캐싱, DB 인덱스, 로드 밸런싱, Free Tier 최적화 |
-| [📊 모니터링](./docs/monitoring.md) | Prometheus 쿼리, Grafana 대시보드, 알림 설정 |
-| [🏗️ 아키텍처](./docs/architecture.md) | 전체 시스템 설계, MSA 패턴, 데이터 플로우 |
+| [API 명세서](./docs/api-spec.md) | Auth & Board API 엔드포인트, Request/Response, cURL 예제 |
+| [배포 가이드](./docs/deployment.md) | 로컬 개발, OCI 프로덕션 배포, CI/CD 파이프라인 |
+| [트러블슈팅](./docs/troubleshooting.md) | 자주 발생하는 문제 및 해결 방법 |
+| [성능 최적화](./docs/performance.md) | Redis 캐싱, DB 인덱스, Free Tier 최적화 |
+| [모니터링](./docs/monitoring.md) | Prometheus 쿼리, Grafana 대시보드 |
+| [아키텍처](./docs/architecture.md) | 전체 시스템 설계, MSA 패턴, 데이터 플로우 |
 
 ---
 
@@ -165,18 +147,21 @@ project-root/
 │   │   ├── auth/             # 회원가입, 로그인, JWT
 │   │   ├── entities/         # user.entity.ts (auth_schema)
 │   │   ├── health/           # /auth/health
-│   │   └── metrics/          # /auth/metrics
+│   │   └── metrics/          # /auth/metrics (Prometheus)
 │   ├── Dockerfile
 │   └── package.json
 │
 ├── board-server/             # Board Service (PORT 3000)
 │   ├── src/
-│   │   ├── board/            # 게시글 CRUD + Redis 캐싱
+│   │   ├── board/
+│   │   │   ├── commands/     # CreatePost, UpdatePost, DeletePost 핸들러
+│   │   │   ├── queries/      # GetPosts, GetPostById, GetMyPosts 핸들러
+│   │   │   └── dto/
 │   │   ├── auth/             # JWT 검증 + Auth Client
 │   │   ├── entities/         # post.entity.ts (board_schema)
 │   │   ├── cache/            # Redis 모듈
 │   │   ├── health/           # /health
-│   │   └── metrics/          # /metrics
+│   │   └── metrics/          # /metrics (Prometheus)
 │   ├── Dockerfile
 │   └── package.json
 │
@@ -184,21 +169,13 @@ project-root/
 │   ├── prometheus.yml
 │   └── grafana/
 │
-├── docs/                     # 📚 상세 문서
-│   ├── api-spec.md
-│   ├── deployment.md
-│   ├── troubleshooting.md
-│   ├── performance.md
-│   ├── monitoring.md
-│   └── architecture.md
-│
-├── scripts/                  # 배포 및 테스트 스크립트
-│   ├── deploy.sh
-│   └── test-all.sh
+├── docs/                     # 상세 문서 6개
+├── scripts/                  # init-ssl.sh, duckdns-renew.sh, test-all.sh
 │
 ├── docker-compose.yml        # 로컬 개발용
 ├── docker-compose.prod.yml   # 프로덕션용
-├── nginx.conf                # API Gateway 설정
+├── nginx.conf                # API Gateway + HTTPS 설정
+├── nginx.conf.init           # Let's Encrypt 초기 발급용 Nginx 설정
 └── schema_migration.sql      # DB 초기화 SQL
 ```
 
@@ -207,79 +184,58 @@ project-root/
 <details>
 <summary><b>🗄️ 데이터베이스 스키마</b></summary>
 
-### Schema Separation 전략
-
 ```
 supabase_database
-├── auth_schema          # Auth Service 전용
+├── auth_schema
 │   └── users
-│       ├── id (UUID, PK)
-│       ├── email (VARCHAR, UNIQUE)
-│       ├── password (VARCHAR, bcrypt)
-│       ├── nickname (VARCHAR)
-│       ├── created_at, updated_at
+│       ├── id          UUID PK
+│       ├── email       VARCHAR UNIQUE
+│       ├── password    VARCHAR (bcrypt)
+│       ├── nickname    VARCHAR
+│       └── created_at  TIMESTAMPTZ
 │
-└── board_schema         # Board Service 전용
+└── board_schema
     └── posts
-        ├── id (UUID, PK)
-        ├── title (VARCHAR)
-        ├── content (TEXT)
-        ├── is_public (BOOLEAN)
-        ├── author_id (UUID)
-        ├── author_nickname (VARCHAR)  # 비정규화
-        ├── author_email (VARCHAR)     # 비정규화
-        ├── created_at, updated_at
+        ├── id               UUID PK
+        ├── title            VARCHAR
+        ├── content          TEXT
+        ├── is_public        BOOLEAN
+        ├── author_id        UUID
+        ├── author_nickname  VARCHAR  -- 비정규화
+        ├── author_email     VARCHAR  -- 비정규화
+        └── created_at       TIMESTAMPTZ
 ```
 
-**왜 비정규화를 했는가?**
-- MSA에서 서비스 간 JOIN 불가능
-- 게시글 목록 조회 시 N+1 문제 해결
-- 단일 쿼리로 조회 완결 → **성능 10배** 향상
+MSA 환경에서는 서비스 간 직접 JOIN이 불가능하므로, 게시글 조회 시 Auth Service를 호출하지 않기 위해 author 정보를 board_schema에 비정규화하여 저장합니다. 단, 사용자가 닉네임을 변경해도 기존 게시글에는 반영되지 않는 트레이드오프가 있습니다.
 
 </details>
 
 <details>
 <summary><b>⚙️ 환경 변수 설정</b></summary>
 
-### .env 파일 생성
-
 ```env
-# ========================================
-# Database Configuration
-# ========================================
+# Database
 AUTH_DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/[DB]?schema=auth_schema
 BOARD_DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/[DB]?schema=board_schema
 
-# ========================================
-# JWT Configuration
-# ========================================
+# JWT
 JWT_SECRET=your_super_secret_key_change_in_production
 
-# ========================================
-# Redis Configuration
-# ========================================
+# Redis
 REDIS_HOST=redis
 REDIS_PORT=6379
 
-# ========================================
 # Service URLs (Internal)
-# ========================================
 AUTH_SERVICE_URL=http://auth-service:3001
 
-# ========================================
 # Environment
-# ========================================
 NODE_ENV=production
 TZ=Asia/Seoul
 ```
 
-**보안 주의**:
 ```bash
 # 강력한 JWT Secret 생성
 openssl rand -base64 32
-
-# .env 파일 권한 설정
-chmod 600 .env
 ```
 
 </details>
@@ -287,34 +243,22 @@ chmod 600 .env
 <details>
 <summary><b>🔧 로컬 개발 환경</b></summary>
 
-### 방법 1: Docker Compose (권장)
+### Docker Compose (권장)
 
 ```bash
-# 1. 클린 빌드
 docker-compose build --no-cache
-
-# 2. 백그라운드 실행
 docker-compose up -d
-
-# 3. 로그 확인
 docker-compose logs -f board-service-1 auth-service
-
-# 4. 서비스 상태 확인
-docker-compose ps
 ```
 
-### 방법 2: 개발 모드 (Hot Reload)
+### 개발 모드 (Hot Reload)
 
 ```bash
 # Terminal 1: Auth Service
-cd auth-server
-npm install
-npm run start:dev
+cd auth-server && npm install && npm run start:dev
 
 # Terminal 2: Board Service
-cd board-server
-npm install
-npm run start:dev
+cd board-server && npm install && npm run start:dev
 
 # Terminal 3: Redis
 docker run -p 6379:6379 redis:7-alpine
@@ -323,93 +267,27 @@ docker run -p 6379:6379 redis:7-alpine
 ### Health Check
 
 ```bash
-# Board Service
 curl http://localhost/health
-# {"status":"ok","info":{"database":{"status":"up"}}}
-
-# Auth Service
 curl http://localhost/auth/health
-# {"status":"ok","info":{"database":{"status":"up"}}}
 ```
 
 </details>
 
 ---
 
-## 📊 성능 지표
+## 🎯 주요 기술 결정
 
-| 지표 | Before | After | 개선율 |
-|------|--------|-------|--------|
-| 게시글 목록 조회 | 200ms | 20ms | **10배** ⬆️ |
-| DB 쿼리 수 | 100/s | 10/s | **90% 감소** ⬇️ |
-| 동시 처리량 | 50 req/s | 500 req/s | **10배** ⬆️ |
-| 로드 밸런싱 | 1-replica | 3-replica | **3배** ⬆️ |
+### 1. MSA 구조 선택
+Auth와 Board를 별도 서비스로 분리하여 Schema Separation을 구현했습니다. 현재는 같은 Supabase 인스턴스를 사용하지만 스키마 경계를 유지하고 있어 물리적 분리로의 전환이 용이합니다.
 
-> 📈 **상세 벤치마크**: [docs/performance.md](./docs/performance.md)
+### 2. CQRS 패턴 적용
+Board Service를 Command(쓰기)와 Query(읽기) 핸들러로 분리했습니다. 현재는 단일 DB를 사용하므로 읽기/쓰기 성능 분리 효과는 없지만, 핸들러 단위 테스트 작성이 용이하고 향후 Read Replica 도입 시 구조 변경이 최소화됩니다.
 
----
+### 3. Version 기반 캐시 무효화
+게시글 CUD 발생 시 `posts:version` 숫자를 증가시켜 기존 캐시 키를 무효화합니다. `KEYS posts:*` 같은 O(N) Redis 명령을 사용하지 않아도 됩니다.
 
-## 🚀 프로덕션 배포
-
-### Oracle Cloud (OCI) Free Tier
-
-**서버 스펙**:
-- **Instance**: VM.Standard.E2.1.Micro
-- **vCPU**: 1 core
-- **RAM**: 1GB + 2GB Swap
-- **OS**: Ubuntu 24.04 LTS
-- **Public IP**: 152.67.216.145
-
-**배포 방법**:
-
-#### 1. GitHub Actions (자동)
-```
-Repository → Actions → "Run workflow"
-→ main 브랜치 선택 → Deploy
-```
-
-#### 2. 수동 스크립트
-```bash
-ssh ubuntu@152.67.216.145
-cd /app
-./scripts/deploy.sh
-```
-
-#### 3. 배포 확인
-```bash
-# Health Check
-curl http://152.67.216.145/health
-curl http://152.67.216.145/auth/health
-
-# Prometheus Targets
-curl http://152.67.216.145:9090/api/v1/targets
-```
-
-> 🚀 **상세 배포 가이드**: [docs/deployment.md](./docs/deployment.md)
-
----
-
-## 🎯 주요 기술 결정 사항
-
-### 1. MSA 아키텍처 선택
-**이유**: 서비스 독립성, 확장성, 장애 격리
-- Schema Separation으로 논리적 DB 분리
-- 향후 물리적 DB 분리 용이
-
-### 2. Redis 캐싱 도입
-**이유**: 조회 성능 10배 향상
-- Cache-Aside 패턴
-- LRU 정책으로 메모리 최적화
-
-### 3. 비정규화 전략
-**이유**: MSA에서 서비스 간 JOIN 불가능
-- N+1 문제 해결
-- 단일 쿼리로 조회 완결
-
-### 4. 3-Replica 로드 밸런싱
-**이유**: 고가용성 및 성능 향상
-- 무중단 배포 가능
-- 단일 장애 시 자동 Failover
+### 4. 비정규화 전략
+MSA 환경에서 서비스 간 직접 JOIN을 피하기 위해 `author_nickname`, `author_email`을 posts 테이블에 저장합니다. 사용자 닉네임 변경이 기존 게시글에 반영되지 않는 트레이드오프가 있습니다.
 
 > 🏗️ **상세 설계 문서**: [docs/architecture.md](./docs/architecture.md)
 
@@ -417,32 +295,35 @@ curl http://152.67.216.145:9090/api/v1/targets
 
 ## 🔒 보안
 
-- ✅ **JWT 인증**: Passport JWT Strategy (자체 JWT 발급)
-- ✅ **비밀번호 해싱**: Bcrypt (Salt Rounds: 10)
-- ✅ **UFW 방화벽**: 22, 80, 443 포트만 허용
-- ✅ **환경 변수**: .env 파일로 민감 정보 관리
-- ✅ **RLS (Row Level Security)**: Supabase PostgreSQL 정책 적용
-- ✅ **API 인증**: Bearer Token 방식
+- **JWT 인증**: Passport JWT Strategy (자체 JWT 발급)
+- **비밀번호 해싱**: Bcrypt (Salt Rounds: 10)
+- **HTTPS**: Let's Encrypt + DuckDNS + certbot 자동 갱신
+- **방화벽**: UFW (22, 80, 443 포트만 허용)
+- **환경 변수**: .env 파일로 민감 정보 관리
 
 ---
 
 ## 📈 모니터링
 
-### Prometheus + Grafana
+Prometheus + Grafana 조합으로 실시간 메트릭을 수집합니다.
 
 **수집 메트릭**:
-- `http_requests_total`: HTTP 요청 총 개수
-- `http_request_duration_seconds`: 응답 시간 분포
-- `process_cpu_user_seconds_total`: CPU 사용 시간
-- `nodejs_heap_size_used_bytes`: 메모리 사용량
+- `http_requests_total`: HTTP 요청 수 (라우트, 메서드, 상태코드별)
+- `http_request_duration_seconds`: 응답 시간 분포 (Histogram)
+- `cache_hits_total` / `cache_misses_total`: 커스텀 캐시 히트율 메트릭
+- `nodejs_heap_size_used_bytes`: Node.js 힙 메모리
+- Redis Exporter, Node Exporter 메트릭
 
-**주요 쿼리**:
+**주요 PromQL**:
 ```promql
 # P95 응답 시간
-histogram_quantile(0.95, http_request_duration_seconds_bucket)
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+
+# 캐시 히트율
+rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) * 100
 
 # 에러율
-rate(http_requests_total{status=~"5.."}[5m])
+rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100
 ```
 
 > 📊 **Grafana 대시보드 가이드**: [docs/monitoring.md](./docs/monitoring.md)
@@ -451,95 +332,60 @@ rate(http_requests_total{status=~"5.."}[5m])
 
 ## 🐛 트러블슈팅
 
-**자주 발생하는 문제**:
-
 | 문제 | 해결 방법 |
 |------|----------|
-| ESLint 실패 | ESLint v8.57.0으로 다운그레이드 |
-| TypeORM 연결 실패 | .env 파일 DATABASE_URL 확인 |
-| Redis 연결 실패 | Docker 네트워크 확인, `REDIS_HOST=redis` |
-| Prometheus 타겟 DOWN | NestJS 서버 완전히 시작될 때까지 대기 |
-| 메모리 부족 (OOM) | 스왑 메모리 2GB 설정 |
+| ESLint 실패 | ESLint v8.57.0으로 고정 (v9 Flat Config 미호환) |
+| TypeORM 연결 실패 | .env DATABASE_URL 확인, Supabase 프로젝트 활성 상태 확인 |
+| Redis 연결 실패 | Docker 네트워크 확인, `REDIS_HOST=redis` 설정 확인 |
+| Prometheus 타겟 DOWN | NestJS TypeORM 초기화 완료까지 대기 (서버 시작 직후 일시적) |
+| OOM (메모리 부족) | 스왑 메모리 2GB 설정 (OCI Free Tier 1GB RAM 환경) |
+| certbot 인증서 갱신 실패 | DuckDNS 토큰 확인, nginx reload 상태 확인 |
 
 > 🔧 **전체 트러블슈팅 가이드**: [docs/troubleshooting.md](./docs/troubleshooting.md)
 
 ---
 
-## 🎉 최근 개선 사항 (2026-02-11)
+## 📝 변경 이력
 
-### 인증 시스템 안정화
-- ✅ Passport.js JWT 전략 적용
-- ✅ Bcrypt 비밀번호 해싱 구현
-- ✅ 사용자 정보 조회 API 완성
-- ✅ JWT 검증 로직 최적화
+### 2026-03-11 — CQRS 전환 및 마무리
+- Board Service를 CQRS 패턴으로 전환 (Command 3개, Query 3개 핸들러)
+- 프로덕션에서 Swagger 활성화 및 Nginx API 라우팅 수정
+- MetricsModule을 BoardModule에 등록하여 캐시 메트릭 정상 수집
+- 커스텀 캐시 메트릭 (`cache_hits_total`, `cache_misses_total`) 추가
 
-### 프로덕션 배포 완료
-- ✅ Oracle Cloud 서버 구축 (1 vCPU, 1GB RAM + 2GB Swap)
-- ✅ UFW 방화벽 설정 (포트 22, 80, 443)
-- ✅ deploy.sh 스크립트 작성
-- ✅ GitHub Actions CI/CD 파이프라인 구성
+### 2026-03-10 — HTTPS 적용
+- DuckDNS + Let's Encrypt certbot 설정
+- certbot 자동 갱신 스크립트 (`scripts/duckdns-renew.sh`) 작성
+- 초기 인증서 발급용 Nginx 설정 (`nginx.conf.init`) 분리
 
-### 인프라 최적화
-- ✅ Redis LRU 정책 적용 (maxmemory 256mb)
-- ✅ Prometheus scrape interval 15초 설정
-- ✅ Alpine 이미지 사용 (경량화)
-- ✅ Board Service 3-replica 로드 밸런싱
-
-### 문서화 강화
-- ✅ README 3계층 정보 아키텍처 적용
-- ✅ 6개 상세 문서 작성 (API, 배포, 트러블슈팅 등)
-- ✅ docs/ 폴더 구조화
-- ✅ 각 모듈별 README.md 작성
+### 2026-02-11 — 초기 완성
+- Auth Service (JWT, Bcrypt, Swagger) 완성
+- Board Service (CRUD, Redis 캐싱, 페이지네이션, Swagger) 완성
+- OCI Free Tier 서버 구축, UFW 방화벽 설정
+- GitHub Actions CI/CD 파이프라인 구성
+- Prometheus + Grafana 모니터링 스택 구성
+- Redis LRU 정책 (maxmemory 256mb), 스왑 메모리 2GB 설정
 
 ---
 
-## 🚧 향후 계획 (Roadmap)
+## 🗒️ 이 프로젝트의 범위
 
-### Phase 3: Event-Driven Architecture
-- [ ] Kafka 이벤트 버스 도입
-- [ ] User 정보 변경 이벤트 발행
-- [ ] Board Service 캐시 동기화
+MSA 기본 패턴 학습을 목적으로 아래 항목을 직접 구성하며 운영해봤습니다:
 
-### Phase 4: 확장성 강화
-- [ ] Kubernetes 마이그레이션
-- [ ] HPA (Horizontal Pod Autoscaler)
-- [ ] Database Sharding
+- NestJS 멀티 서비스 구성 (Docker Compose)
+- Schema Separation 기반 DB 논리적 분리
+- CQRS 패턴 적용
+- Redis Cache-Aside + Version 기반 캐시 무효화
+- Nginx API Gateway 및 Round-Robin 로드밸런싱
+- Prometheus/Grafana 모니터링 스택 연동 및 커스텀 메트릭
+- HTTPS (Let's Encrypt) + DuckDNS 자동 갱신
+- OCI Free Tier 실운영
 
-### Phase 5: 보안 강화
-- [ ] HTTPS 적용 (Let's Encrypt)
-- [ ] Rate Limiting (Redis 기반)
-- [ ] API Key Management (Vault)
-
----
-
-## 🤝 기여 가이드
-
-### 커밋 컨벤션
-
-```
-feat: 새로운 기능 추가
-fix: 버그 수정
-docs: 문서 수정
-style: 코드 포맷팅
-refactor: 코드 리팩토링
-test: 테스트 코드 추가
-chore: 빌드 설정 변경
-perf: 성능 개선
-```
-
-### Pull Request 프로세스
-
-1. `feature/기능명` 브랜치 생성
-2. 변경 사항 커밋
-3. `develop` 브랜치로 PR 생성
-4. CI 테스트 통과 확인
-5. 코드 리뷰 후 병합
-
----
-
-## 📄 라이선스
-
-MIT License - [LICENSE](LICENSE) 파일 참조
+다루지 않은 항목:
+- 메시지 브로커(Kafka 등) 기반 Event-Driven 패턴
+- Kubernetes / 컨테이너 오케스트레이션
+- Rate Limiting (`@nestjs/throttler` 설치만 됨, 미적용)
+- Grafana 대시보드 자동 프로비저닝 (datasource는 설정됨, dashboard provider YAML 미작성)
 
 ---
 
@@ -548,17 +394,4 @@ MIT License - [LICENSE](LICENSE) 파일 참조
 **Author**: hsm9411  
 **Email**: haeha2e@gmail.com  
 **GitHub**: https://github.com/hsm9411  
-**Last Updated**: 2026-02-11  
-
----
-
-## 📞 문의 및 지원
-
-- **이슈 리포트**: [GitHub Issues](https://github.com/hsm9411/board-msa/issues)
-- **기능 제안**: [GitHub Discussions](https://github.com/hsm9411/board-msa/discussions)
-- **보안 취약점**: haeha2e@gmail.com (비공개)
-
----
-
-**⭐ 이 프로젝트가 도움이 되었다면 Star를 눌러주세요!**
-
+**Last Updated**: 2026-03-11
